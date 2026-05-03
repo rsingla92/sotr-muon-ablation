@@ -57,6 +57,10 @@ data/*
 .ipynb_checkpoints/
 *.ipynb_meta
 
+# Generated Phase 2 ablation configs (regenerable from gen_phase2_configs.py).
+# Keep the cell-level __init__.py and the top-level index.txt.
+experiments/configs/phase2/*/seed*_lr*.py
+
 # Temp / scratch
 tmp/
 scratch/
