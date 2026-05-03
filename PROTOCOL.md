@@ -233,8 +233,8 @@ Run at small scale only initially; promote winners to mid-scale.
 | **D. Drop both** | 1.0 | ∞ | 2 | "MuonLike q=2" — partial NS only |
 | **E. Drop NS** | 0.5 | 1.0 | 0 | Renorm-SGD with Fro cap + blend (skips orth) |
 | **F. Full NS + SOTR** | 0.5 | 1.0 | 5 | Does *partial* NS matter? |
-| **G. α schedule** | 0→0.5 over 10k steps | 1.0 | 2 | Annealing matters? |
-| **H. Δ scheduled** | 0.5 | start∞ → 1.0 over 10k | 2 | Late-onset trust region? |
+| **G. α schedule** | 0→0.5 over 10k steps | 1.0 | 2 | Annealing matters? *(deferred — see Amendment 2026-05-03 (G/H deferral); first ablation pass emits static α=0.5, identical to A)* |
+| **H. Δ scheduled** | 0.5 | start∞ → 1.0 over 10k | 2 | Late-onset trust region? *(deferred — see Amendment 2026-05-03 (G/H deferral); first ablation pass emits static Δ=1.0, identical to A)* |
 | **I. Muon + Fro cap only** | 1.0 | 1.0 | 5 | Isolates the Frobenius trust region as the *sole* novel mechanism. Cleanest test of "is Δ alone enough?" |
 | **J. Partial-NS Muon** | 1.0 | ∞ | 2 | Isolates partial NS's effect with no blend and no cap. Decouples q from the other knobs. |
 
@@ -423,6 +423,23 @@ Earlier wording in §5 specified "FP32 NS body." Inspection of `external/Muon/mu
 - Trim `pyproject.toml` deps: removed `tiktoken`, `datasets`, `einops`, `tqdm`, `pyyaml`, `rich` (none used by our code; modded-nanogpt's runtime deps installed separately by `setup_drac.sh`).
 
 **Reproduction target unchanged:** PROTOCOL §6 still says final FineWeb val loss within ±5% of the published number. At dd2224b, the canonical short-track Muon record is **12.0 minutes on 8× H100** to 3.28 val loss (Record #7, "Upgraded PyTorch 2.5.0", 2024-10-18). On a single H100 with `grad_accum=8` we expect ~1.5–2 hours — faster than the earlier ~3 h estimate that was based on the heavier HEAD script.
+
+### Amendment 2026-05-03 (G/H deferral) — Static α/Δ for first Phase 2 ablation pass
+*(Pre-Phase-2; no Phase-2 experimental data yet → free amendment.)*
+
+**Trigger:** During Phase 2 vendoring of `train.py`, α/Δ schedules (cells G and H in §9) were not wired through the training loop. The optimizer step accepts a single static α and Δ; per-step scheduling would require either (a) a callback re-binding the SOTR optimizer's hyperparameters mid-run, or (b) a small scheduler hook adjacent to the LR schedule. Neither is built.
+
+**Change:** For the first Phase 2 ablation pass, cells G and H emit *static* configs (α=0.5, Δ=1.0, q=2 — byte-identical to cell A). The §9 grid still lists 10 cells × 5 seeds × 5 LRs = 250 runs; G and H produce duplicate-of-A data points for the first pass.
+
+**Consequences:**
+- **What we still learn from the first pass:** the 8 non-G/H cells answer the core ablation questions (α-blend contribution, Δ-cap contribution, partial-NS contribution, isolated mechanisms via I and J). G/H are about *scheduling*, which is orthogonal to the necessity-of-components question (H2).
+- **What we don't learn:** whether α-annealing or late-onset trust regions improve over their static counterparts. Pre-registered prediction "G ≥ A" (§9) is **withdrawn** for the first pass; it will be reinstated in a follow-up amendment if/when the scheduler ships.
+- **Statistical bookkeeping:** the Holm-Bonferroni correction in §3 (H2) is applied across the *three* component drops {α, Δ, NS} only — G and H are not part of that family in the first pass, so they don't change the correction count.
+- **Cells G/H rerun:** after the scheduler is wired, G and H will be regenerated and rerun (5 seeds × 5 LRs × 2 cells = 50 additional runs). These count as a follow-up sweep, not as part of the original 250.
+
+**Rationale:** Shipping the wired scheduler before any Phase 2 data exists would block the much higher-value 8-cell ablation on a feature that's only relevant if the static-knob results recommend exploring scheduling. Better to run the first pass, see whether α/Δ even matter (cells B vs A, C vs A), and only then invest in the scheduler.
+
+**The generator (`experiments/scripts/gen_phase2_configs.py`) and §9 table both flag G/H with this caveat so future readers see the deferral inline.**
 
 ### Amendment 2026-05-02 (UBC cluster) — Switch to UBC compute, drop dollar estimates
 *(Pre-Phase-0; no experimental data yet → free amendment.)*
