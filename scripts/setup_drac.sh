@@ -139,21 +139,66 @@ fi
 # ---------------------------------------------------------------------------
 # 9. Filesystem symlinks
 # ---------------------------------------------------------------------------
-# results/, checkpoints/, data/ live in scratch/project (not git).
-# Symlink them from the repo so train scripts can use repo-relative paths.
+# results/, data/ should live in scratch (large quota, periodic purge).
+# checkpoints/ should live in project (long-term storage).
+#
+# But if the user cloned the repo *into* scratch (or project), some of those
+# symlinks would point at themselves → infinite loop on `mkdir -p data/...`.
+# We detect repo location and skip self-symlinks accordingly.
 echo ""
 echo "==> Setting up filesystem symlinks..."
-mkdir -p "$SCRATCH_BASE/results" "$SCRATCH_BASE/data" "$PROJECT_BASE/checkpoints" "$SCRATCH_BASE/results/slurm"
+ROOT_REAL="$(realpath "$ROOT")"
+SCRATCH_REAL="$(realpath -m "$SCRATCH_BASE" 2>/dev/null || echo "")"
+PROJECT_REAL="$(realpath -m "$PROJECT_BASE" 2>/dev/null || echo "")"
 
-for link in results data; do
-    if [[ ! -L "$link" ]] && [[ -d "$link" ]]; then
-        # Existing real dir from the repo .gitkeep — replace with symlink.
-        rm -rf "$link.bak" || true
-        mv "$link" "$link.bak"
+# Always create the destination dirs — they exist whether or not the repo
+# itself happens to overlap with them.
+mkdir -p "$SCRATCH_BASE" "$PROJECT_BASE/checkpoints"
+
+if [[ "$ROOT_REAL" == "$SCRATCH_REAL" ]]; then
+    echo "    Repo is in scratch ($ROOT_REAL) — using local data/ and results/ directly."
+    # Repair any self-referential symlinks left over from earlier runs.
+    for link in results data; do
+        if [[ -L "$link" ]]; then
+            target="$(readlink "$link")"
+            target_real="$(realpath -m "$target" 2>/dev/null || echo "")"
+            if [[ "$target_real" == "$ROOT_REAL/$link" ]]; then
+                echo "    Removing self-referential symlink: $link -> $target"
+                rm -f "$link"
+            fi
+        fi
+        mkdir -p "$link"
+    done
+    mkdir -p results/slurm
+else
+    # Repo lives outside scratch (e.g., project space). Symlink so writes
+    # land in scratch where the quota allows it.
+    mkdir -p "$SCRATCH_BASE/results" "$SCRATCH_BASE/data" "$SCRATCH_BASE/results/slurm"
+    for link in results data; do
+        if [[ ! -L "$link" ]] && [[ -d "$link" ]]; then
+            rm -rf "$link.bak" || true
+            mv "$link" "$link.bak"
+        fi
+        ln -snf "$SCRATCH_BASE/$link" "$link"
+    done
+fi
+
+# checkpoints → project space (unless repo IS in project space, then local).
+if [[ "$ROOT_REAL" == "$PROJECT_REAL" ]]; then
+    mkdir -p checkpoints
+else
+    if [[ -d checkpoints ]] && [[ ! -L checkpoints ]]; then
+        # If it's empty (just a .gitkeep), replace with symlink. Otherwise back up.
+        if [[ -z "$(find checkpoints -mindepth 1 -not -name '.gitkeep' -print -quit 2>/dev/null)" ]]; then
+            rm -rf checkpoints
+        else
+            echo "    WARNING: checkpoints/ has non-trivial content; backing up to checkpoints.bak"
+            rm -rf checkpoints.bak || true
+            mv checkpoints checkpoints.bak
+        fi
     fi
-    ln -snf "$SCRATCH_BASE/$link" "$link"
-done
-ln -snf "$PROJECT_BASE/checkpoints" checkpoints
+    ln -snf "$PROJECT_BASE/checkpoints" checkpoints
+fi
 
 ls -ld results data checkpoints
 
