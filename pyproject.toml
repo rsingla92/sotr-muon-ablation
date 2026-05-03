@@ -9,17 +9,13 @@ authors = [
     { name = "Rohit Singla", email = "rsingla@ece.ubc.ca" },
 ]
 
-# Match modded-nanogpt's locked versions where it matters for our comparison harness.
-# See PROTOCOL.md §5 and external/modded-nanogpt/Dockerfile.
+# Match modded-nanogpt's locked versions where it matters for our comparison
+# harness. external/modded-nanogpt is pinned at dd2224b (2024-10-29 era);
+# its own requirements.txt (numpy, tqdm, torch, huggingface-hub) is installed
+# separately by scripts/setup_drac.sh / scripts/setup.sh.
 dependencies = [
     "torch>=2.10",
     "numpy>=1.26",
-    "tiktoken>=0.7",
-    "datasets>=2.20",
-    "tqdm>=4.66",
-    "pyyaml>=6.0",
-    "rich>=13.7",
-    "einops>=0.8",
 ]
 
 [project.optional-dependencies]

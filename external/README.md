@@ -7,7 +7,7 @@ Pinned as git submodules so every reported number is reproducible against a know
 | Path | Upstream | Pinned commit | Why |
 |---|---|---|---|
 | `external/Muon` | https://github.com/KellerJordan/Muon | `bd1758a` (HEAD as of 2026-05-02) | Reference Muon optimizer (`MuonWithAuxAdam`). PROTOCOL §6 baseline. |
-| `external/modded-nanogpt` | https://github.com/KellerJordan/modded-nanogpt | `6399c65` (HEAD as of 2026-05-02) | The speedrun harness where Muon's published numbers were generated. PROTOCOL §4 dataset/model source. |
+| `external/modded-nanogpt` | https://github.com/KellerJordan/modded-nanogpt | **`dd2224b`** (2024-10-29, "Optimizers" comparison era) | The canonical comparison harness where AdamW / DistributedShampoo / SOAP / Muon were benchmarked apples-to-apples (`records/track_1_short/2024-10-29_Optimizers/`). 537-line `train_gpt2.py` with simple `optimizers = [AdamW(lm_head), Muon(transformer.h)]` pattern. PROTOCOL §4 dataset/model source. **Deliberately pinned older than HEAD** — current upstream uses `NorMuonAndAdam` with sharded comms / FP8 lm_head / banked weights, which would force us to fork around their custom dispatcher rather than swap in clean baselines. See PROTOCOL §15 amendment 2026-05-03 for rationale. |
 | `external/lion-pytorch` | https://github.com/lucidrains/lion-pytorch | `6a74fdc` (HEAD as of 2026-05-02) | Lion (Chen et al. 2023) reference impl. PROTOCOL §6 baseline. |
 | `external/dion` | https://github.com/microsoft/dion | `9f7897d` (HEAD as of 2026-05-02) | Microsoft's official Dion implementation (Ahn et al. 2025). Reference for any low-rank distributed comparison and for SOTR-on-Dion ablation. |
 

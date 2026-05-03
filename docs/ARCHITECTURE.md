@@ -103,7 +103,7 @@ Training pipeline split into:
 - `train.py`: the actual training loop. Takes `--config path/to/config.yaml`, validates against the dataclass, runs.
 - `configs/`: YAML files. One file per actual run. Filename matches its purpose.
 
-The train loop is built on top of `external/modded-nanogpt/train_gpt.py` — we adapt rather than rewrite, since matching that harness is the whole point of comparability (see PROTOCOL §5).
+The train loop is built on top of `external/modded-nanogpt/train_gpt2.py` — we adapt rather than rewrite, since matching that harness is the whole point of comparability (see PROTOCOL §5).
 
 ### `tests/`
 

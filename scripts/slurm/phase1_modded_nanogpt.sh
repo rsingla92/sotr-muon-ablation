@@ -1,10 +1,14 @@
 #!/bin/bash
-# Phase 1 reproduction — runs upstream external/modded-nanogpt/train_gpt.py
+# Phase 1 reproduction — runs pinned external/modded-nanogpt/train_gpt2.py
 # unmodified at single-GPU on DRAC.
 #
 # Goal: confirm our cluster setup reproduces a published Muon number on the
 # canonical FineWeb harness. PROTOCOL §6 reproduction gate is "within ±5%" of
 # Keller Jordan's published single-GPU baseline.
+#
+# external/modded-nanogpt is pinned at dd2224b (2024-10-29 "Optimizers"
+# comparison era) — see external/README.md for rationale. The training script
+# at this commit is named `train_gpt2.py` (not `train_gpt.py` as in HEAD).
 #
 # Usage (after running ./scripts/setup_drac.sh):
 #     sbatch scripts/slurm/phase1_modded_nanogpt.sh
@@ -34,7 +38,7 @@ set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
 module purge
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
 
 VENV="${SCRATCH:-$HOME/scratch}/optimizer_experiments/venv"
 if [[ ! -d "$VENV" ]]; then
@@ -91,10 +95,10 @@ echo ""
 # - grad_accum_steps becomes 8 (set automatically inside train_gpt.py)
 # - run from inside external/modded-nanogpt/ since their script uses relative paths
 #   to data/fineweb10B/ and triton_kernels.py
-echo "Starting modded-nanogpt train_gpt.py on $(hostname) at $(date -Iseconds)..."
+echo "Starting modded-nanogpt train_gpt2.py on $(hostname) at $(date -Iseconds)..."
 cd external/modded-nanogpt
 
-torchrun --standalone --nproc_per_node=1 train_gpt.py 2>&1 | tee "../../$RUN_DIR/train.log"
+torchrun --standalone --nproc_per_node=1 train_gpt2.py 2>&1 | tee "../../$RUN_DIR/train.log"
 EXIT_CODE=${PIPESTATUS[0]}
 
 cd "$SLURM_SUBMIT_DIR"

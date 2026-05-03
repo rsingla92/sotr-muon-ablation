@@ -26,7 +26,7 @@ description: >
 
 # Model
 model:
-  arch: gpt_modded                          # match modded-nanogpt's train_gpt.py
+  arch: gpt_modded                          # match modded-nanogpt's train_gpt2.py
   n_layer: 12
   n_embd: 768
   n_head: 6

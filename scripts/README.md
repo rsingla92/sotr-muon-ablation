@@ -11,7 +11,7 @@ Repo-level utilities. Cluster-specific scripts live in `scripts/slurm/`.
 | `slurm/single_gpu.sh` | Generic 1× GPU template (`rrg-timsbc`). For Phase 0/1 dev runs. |
 | `slurm/multi_gpu.sh` | 4× H100 single-node template (Fir). For Phase 3. |
 | `slurm/array_ablation.sh` | Phase 2 SLURM array (250 jobs, %24 concurrent). Reads from `experiments/configs/phase2/index.txt`. |
-| `slurm/phase1_modded_nanogpt.sh` | Phase 1 reproduction. Runs upstream `external/modded-nanogpt/train_gpt.py` at single GPU. No code changes from us. |
+| `slurm/phase1_modded_nanogpt.sh` | Phase 1 reproduction. Runs upstream `external/modded-nanogpt/train_gpt2.py` at single GPU. No code changes from us. |
 
 ## Phase 1 procedure
 

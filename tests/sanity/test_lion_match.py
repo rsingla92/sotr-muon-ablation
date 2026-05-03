@@ -35,23 +35,21 @@ def test_lion_matches_frozen_reference() -> None:
 
     fix = torch.load(FIXTURE_PATH, weights_only=False)
 
-    # `torch.randn(seed=0)` is not bit-identical across torch builds (different
-    # linked math libs). Fixtures generated on a different build won't match
-    # initial parameters here. Skip cleanly with a pointer to regenerate.
-    fixture_torch = fix.get("torch_version", "unknown (legacy fixture v1)")
-    if fixture_torch != torch.__version__:
-        pytest.skip(
-            f"Fixture built against torch {fixture_torch}, current is "
-            f"{torch.__version__}. torch.randn is not bit-stable across builds. "
-            "Regenerate with: python -m tests.fixtures.generate_references"
-        )
-
+    # `torch.randn(seed=0)` is not bit-identical across platforms / linked math
+    # libraries — even at the same nominal torch version. (`torch.__version__`
+    # doesn't expose the `+computecanada` / `+cu126` etc. local-version suffix
+    # that distinguishes builds, so we can't rely on a string compare.) Probe
+    # directly: if the regenerated initial parameter doesn't match the fixture,
+    # we're on a different platform — skip with a pointer to regenerate.
     torch.manual_seed(fix["initial_seed"])
     p = nn.Parameter(torch.randn(*fix["shape"]))
-    assert torch.allclose(p, fix["initial"], atol=0), (
-        "Initial parameter mismatch despite matching torch versions — something "
-        "deeper has changed (CUDA driver? hardware?). Regenerate the fixture."
-    )
+    if not torch.allclose(p, fix["initial"], atol=0):
+        pytest.skip(
+            f"Fixture's torch.randn output (built on torch "
+            f"{fix.get('torch_version', '??')}) doesn't match this platform's "
+            f"torch {torch.__version__} — different linked math libs. "
+            "Regenerate with: python -m tests.fixtures.generate_references"
+        )
 
     opt = Lion(
         [p],

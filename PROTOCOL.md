@@ -402,6 +402,28 @@ Earlier wording in §5 specified "FP32 NS body." Inspection of `external/Muon/mu
 
 **No effect on hypotheses or success criteria** (H1–H4, kill switches). The fix moves an internal design detail; the headline claims unchanged.
 
+### Amendment 2026-05-03 — Pin `external/modded-nanogpt` to `dd2224b` (Oct 2024 Muon era)
+*(Pre-Phase-2; no Phase-2 experimental data yet → free amendment.)*
+
+**Trigger:** While planning the Phase 2 vendoring of `train_gpt.py`, the research subagent found that upstream HEAD (`6399c65`, May 2026) had moved far from the simple Muon baseline. Current HEAD uses `NorMuonAndAdam` — a single bespoke optimizer with sharded comms, FP8 lm_head, sparse bigram comms, banked weights, MTP, YaRN. Vendoring this with a clean 4-optimizer dispatcher (`{adamw, lion, muon, sotr}`) would force ~100 lines of patches around two execution paths and would not give an apples-to-apples Muon comparison anyway (NorMuon has many features SOTR lacks).
+
+**Change:** `external/modded-nanogpt` pinned to commit **`dd2224b`** (2024-10-29). At this commit:
+
+- `train_gpt2.py` is **537 lines** (vs 2022 at HEAD)
+- Optimizer construction is the simple two-optimizer pattern: `optimizers = [AdamW(lm_head), Muon(transformer.h)]`
+- `requirements.txt` is just `numpy / tqdm / torch / huggingface-hub` (no `tiktoken`, `datasets`, `kernels`, or `pyarrow`)
+- This is the canonical "Optimizers" comparison harness used in `records/track_1_short/2024-10-29_Optimizers/` (AdamW vs DistributedShampoo vs SOAP vs Muon)
+- File rename: HEAD calls it `train_gpt.py`; this older commit calls it `train_gpt2.py`. We preserve upstream's filename when vendoring.
+
+**Consequences:**
+
+- The currently-pending Phase 1 reproduction job (`38333414`, submitted with the old HEAD train_gpt.py) becomes a "scratch" run — it will produce a NorMuon number, not the apples-to-apples baseline we want. We submit a fresh Phase 1 job against `train_gpt2.py` once the vendoring + repinned scripts are merged. Both runs are useful (the NorMuon one as a "what does today's record look like" data point), but only the dd2224b run satisfies PROTOCOL §6.
+- Cleaner Phase 2 work: vendoring is a ~30-line patch (vs ~100), and the 4 baselines (`adamw, lion, muon, sotr`) all run through the same `optimizers = [aux_optim, hidden_optim]` interface.
+- Drop `arrow` module load from `setup_drac.sh` and SLURM scripts (no `datasets` dep at this pin).
+- Trim `pyproject.toml` deps: removed `tiktoken`, `datasets`, `einops`, `tqdm`, `pyyaml`, `rich` (none used by our code; modded-nanogpt's runtime deps installed separately by `setup_drac.sh`).
+
+**Reproduction target unchanged:** PROTOCOL §6 still says final FineWeb val loss within ±5% of the published number. At dd2224b, the canonical short-track Muon record is **12.0 minutes on 8× H100** to 3.28 val loss (Record #7, "Upgraded PyTorch 2.5.0", 2024-10-18). On a single H100 with `grad_accum=8` we expect ~1.5–2 hours — faster than the earlier ~3 h estimate that was based on the heavier HEAD script.
+
 ### Amendment 2026-05-02 (UBC cluster) — Switch to UBC compute, drop dollar estimates
 *(Pre-Phase-0; no experimental data yet → free amendment.)*
 

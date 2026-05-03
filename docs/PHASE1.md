@@ -1,6 +1,6 @@
 # Phase 1 — Reproduction
 
-The PROTOCOL §6 reproduction gate. **No new code from us.** We run upstream `external/modded-nanogpt/train_gpt.py` at single-GPU on **Fir (SFU H100 cluster)** and verify our setup reproduces a published Muon number within ±5%.
+The PROTOCOL §6 reproduction gate. **No new code from us.** We run upstream `external/modded-nanogpt/train_gpt2.py` at single-GPU on **Fir (SFU H100 cluster)** and verify our setup reproduces a published Muon number within ±5%.
 
 If this passes, we know:
 
@@ -48,7 +48,7 @@ cd optimizer_experiments
 Before submitting any compute job, verify the local sanity tests still pass:
 
 ```bash
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
 source ~/scratch/optimizer_experiments/venv/bin/activate
 make sanity
 ```
@@ -75,7 +75,7 @@ Typical wait: minutes to hours depending on Fir queue. Compute itself: ~3 hours 
 JOB=<your-job-id>
 ls results/phase1/phase1_modded_nanogpt-$JOB/
 #   env.txt                  GPU/git/module/pip provenance
-#   train.log                full stdout from train_gpt.py
+#   train.log                full stdout from train_gpt2.py
 #   modded_nanogpt_logs/     modded-nanogpt's own log dir (their convention)
 
 # Tail the training loss curve
@@ -107,7 +107,7 @@ It only validates: **environment + canonical Muon implementation reproduce on ou
 
 Phase 2 prep begins. Per the conversation in this repo's history, that means:
 
-1. Vendor `external/modded-nanogpt/train_gpt.py` into `experiments/train.py` with a header per `CONTRIBUTING.md`. Minimal patch (~30-line diff) to the optimizer construction so `--optimizer-name ∈ {adamw, lion, muon, sotr}` works.
+1. Vendor `external/modded-nanogpt/train_gpt2.py` into `experiments/train.py` with a header per `CONTRIBUTING.md`. Minimal patch (~30-line diff) to the optimizer construction so `--optimizer-name ∈ {adamw, lion, muon, sotr}` works.
 2. Add `experiments/_logging.py` with PROTOCOL §8 stability incident detection and JSONL writer (~80 lines).
 3. Add Python config files in `experiments/configs/` (one per actual run; `@dataclass` instances, no YAML).
 4. `experiments/scripts/gen_phase2_configs.py` to emit the 250-cell ablation index.
