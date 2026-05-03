@@ -79,17 +79,44 @@ Tokenizer: GPT-2 BPE for everything ≥ NanoGPT scale; char-level for Shakespear
 
 ## 5. Hardware and software lock
 
+We follow the **modded-nanogpt speedrun protocol** as our canonical comparison harness. This is the framework where Muon, AdamW, DistributedShampoo, SOAP (and now Muon+, NorMuon, AdaMuon) have all been benchmarked apples-to-apples; tracking it gives us free comparability with the published literature.
+
+**Software lock (from `external/modded-nanogpt/Dockerfile`):**
+
 | Item | Locked value |
 |---|---|
-| Framework | PyTorch ≥ 2.4 |
-| Precision | BF16 mixed precision; **FP32 NS body** |
-| Determinism | `torch.manual_seed(seed)`, `torch.use_deterministic_algorithms(True)` where feasible (NS may require fallback) |
-| Multi-GPU | `torchrun --standalone --nproc_per_node=N` (DDP) |
-| Hardware | UBC cluster GPUs; *type recorded per run*. Cross-type comparisons explicitly flagged. |
-| Compile | `torch.compile` opt-in per config; whether enabled recorded with each result |
-| Random data shuffle | Fixed seed per `(method, seed)` pair. Same seed → same data order across methods. |
+| Framework | PyTorch ≥ 2.10 (matching modded-nanogpt's pinned `torch==2.10` requirement) |
+| Python | 3.12.7 (Docker image) |
+| CUDA | 12.6 (Docker image) |
+| Precision | BF16 mixed; **FP32 NS body**; FP8 matmul where modded-nanogpt enables it (head only) |
+| Determinism | `torch.manual_seed(seed)`, deterministic CUDA where feasible. NS may use non-deterministic kernels — flagged when so. |
+| Multi-GPU | `torchrun --standalone --nproc_per_node=8` |
+| Compile | `torch.compile` opt-in; modded-nanogpt convention: `coordinate_descent_tuning` is **banned** for speedrun comparisons (>30 min compile). We follow this. |
+| Data shuffle | Fixed seed per `(method, seed)` pair → same data ordering across methods. |
+| Param-group split | `raw_model.transformer.h.parameters()` → matrix optimizer; embedding + head → Adam (matches the canonical optimizer comparison in `records/track_1_short/2024-10-29_Optimizers/`). |
+| LR schedule | Trapezoidal (warmup-stable-decay) — empirically optimal in the speedrun protocol. |
+| Weight decay | **0** for matrix optimizer (per speedrun convention); decoupled-AdamW WD optional for aux Adam. |
 
-Any cross-hardware comparison is explicitly flagged in tables and *cannot* be the basis for a primary claim.
+**Hardware tier protocol (where each phase runs):**
+
+| Phase | Hardware | Why | Cost (approx) |
+|---|---|---|---|
+| **Phase 0 (sanity, dev)** | Any single GPU we have access to — UBC cluster A100/L4/3090 OK | Limit-case unit tests don't need scale | ~free |
+| **Phase 1 (reproduction)** | **8× H100** rented from PrimeIntellect (or UBC equivalent if available). Must match modded-nanogpt's official validation environment. | Reproducing published Muon numbers requires the published hardware | ~$2–4 per speedrun (5–10 min × $24/hr) |
+| **Phase 2 (ablation, 200 runs)** | 1–2× H100 or A100 with **reduced-scale config** (smaller `n_layer`/`n_embd`, matched token budget) | 200 runs × full-scale would be infeasible; reduced scale preserves directional signal | ~$5/run × 200 = ~$1k |
+| **Phase 3 (mid-scale validation, ~20 runs)** | **8× H100** at full speedrun config, plus 300–500M extension | Primary claims must be at full canonical setup | ~$200–500 × 20 = ~$4–10k |
+| **Phase 4 (release replication)** | 8× H100 once on PrimeIntellect | External-replication evidence | ~$50 |
+
+**Estimated total compute budget:** $5–15k for Paper 1, conservatively. Significantly lower if UBC GPU cluster covers ablations.
+
+**Any cross-hardware comparison is explicitly flagged in tables and cannot be the basis for a primary claim.** The Phase 2 reduced-scale ablation is *not* a primary claim — it filters configurations for Phase 3 to validate at full scale.
+
+**Reduced-scale config for Phase 2 (proposed; final values during Phase 0 sanity):**
+- Same model architecture as modded-nanogpt's `train_gpt.py`
+- Reduce `n_layer` 12→6, `n_embd` 768→384, `n_head` 6→3 (≈ 25M params)
+- Reduce target tokens proportionally to maintain Chinchilla-like ratio
+- Same validation loss target scaled appropriately (TBD via Phase 1 calibration)
+- Single H100 or A100 acceptable; record GPU type per result
 
 ---
 
@@ -273,4 +300,13 @@ Pre-registration for Paper 2 (Muon-family in RLHF/DPO/GRPO) will be drafted as a
 
 ## Amendments
 
-*(none yet — pre-registration is fresh)*
+### Amendment 2026-05-02 — Lock §5 hardware to modded-nanogpt speedrun protocol
+*(Pre-Phase-0; no experimental data yet → free amendment.)*
+
+**Change:** §5 (Hardware and software lock) updated to specify the modded-nanogpt 8× H100 speedrun protocol as the canonical comparison harness. Phases now have explicit hardware tiers: dev (any GPU) → Phase 1 reproduction (8× H100, must match published env) → Phase 2 ablations (smaller GPU + reduced model config) → Phase 3 validation (back to 8× H100).
+
+**Rationale:** The user asked for a fair comparison protocol. Inspection of `external/modded-nanogpt/records/track_1_short/2024-10-29_Optimizers/README.md` showed AdamW vs DistributedShampoo vs SOAP vs Muon were already benchmarked apples-to-apples on 8× H100 with a documented protocol (zero WD, trapezoidal schedule, ~20 hyperparameter attempts each, `transformer.h.*` for matrix optimizers, embed/head for Adam). This is the conventional setup recent Muon papers (Muon+, NorMuon, AdaMuon) all benchmark against. Adopting it gives us free comparability.
+
+**Cost note:** Estimated total compute ~$5–15k via PrimeIntellect rentals; lower if UBC cluster covers Phase 2 ablations.
+
+**Constraint added:** No primary claim may be supported by reduced-scale Phase 2 numbers alone. Phase 2 is a *filter*; Phase 3 at full canonical scale is what the paper rests on.
