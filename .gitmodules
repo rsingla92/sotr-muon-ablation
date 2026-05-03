@@ -1,0 +1,12 @@
+[submodule "external/modded-nanogpt"]
+	path = external/modded-nanogpt
+	url = https://github.com/KellerJordan/modded-nanogpt.git
+[submodule "external/Muon"]
+	path = external/Muon
+	url = https://github.com/KellerJordan/Muon.git
+[submodule "external/lion-pytorch"]
+	path = external/lion-pytorch
+	url = https://github.com/lucidrains/lion-pytorch.git
+[submodule "external/dion"]
+	path = external/dion
+	url = https://github.com/microsoft/dion.git

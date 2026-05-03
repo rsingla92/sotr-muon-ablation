@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Virtual envs
+.venv/
+venv/
+env/
+.python-version
+
+# uv
+.uv/
+uv.lock.local
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Run artifacts (keep dirs but ignore contents)
+results/*
+!results/.gitkeep
+!results/README.md
+logs/*
+!logs/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
+wandb/
+mlruns/
+runs/
+*.log
+
+# Data (tokenized corpora etc.) — keep dir, ignore contents
+data/*
+!data/.gitkeep
+!data/README.md
+*.bin
+*.idx
+
+# Notebook outputs
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# Temp / scratch
+tmp/
+scratch/
+*.tmp
+
+# Compiled torch artifacts
+*.pt
+*.pth
+!tests/fixtures/*.pt

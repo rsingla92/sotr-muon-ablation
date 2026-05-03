@@ -1,0 +1,52 @@
+[project]
+name = "optimizer-experiments"
+version = "0.0.1"
+description = "Soft-Orthogonal Trust Region (SOTR) and Muon-family optimizer research"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Rohit Singla", email = "rsingla@ece.ubc.ca" },
+]
+
+dependencies = [
+    "torch>=2.4",
+    "numpy>=1.26",
+    "tiktoken>=0.7",
+    "datasets>=2.20",
+    "tqdm>=4.66",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.5",
+    "ruff>=0.4",
+    "ipython>=8.20",
+]
+logging = [
+    "wandb>=0.17",
+    "tensorboard>=2.15",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["optimizers"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-ra -v"
