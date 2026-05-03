@@ -81,9 +81,7 @@ def square_grad() -> torch.Tensor:
 # ---------------------------------------------------------------------------
 # Pytest hooks
 # ---------------------------------------------------------------------------
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: list[pytest.Item]
-) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-skip GPU tests when no CUDA, and enforce marker hygiene."""
     skip_gpu = pytest.mark.skip(reason="CUDA unavailable")
     has_cuda = torch.cuda.is_available()

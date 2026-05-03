@@ -65,14 +65,20 @@ select = [
     "PLE",   # pylint errors
 ]
 ignore = [
-    "E501",  # line length handled by formatter
-    "B008",  # function call in default argument (common torch idiom)
-    "N812",  # lowercase imported as non-lowercase (e.g., from torch import Tensor as T)
+    "E501",   # line length handled by formatter
+    "E741",   # ambiguous variable name (we use M, O for matrices — math convention)
+    "B008",   # function call in default argument (common torch idiom)
+    "N803",   # argument name should be lowercase (we use M, O, U, V, Σ — math convention)
+    "N806",   # variable in function should be lowercase (same)
+    "N812",   # lowercase imported as non-lowercase (e.g., from torch import Tensor as T)
+    "RUF001", # ambiguous unicode in strings — we use α, β, σ, Δ deliberately
+    "RUF002", # ambiguous unicode in docstrings — same
+    "RUF003", # ambiguous unicode in comments — same
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B011", "PLE1142"]   # asserts and notrun in tests are fine
-"experiments/scripts/**" = ["E402"] # late imports OK in entry-point scripts
+"tests/**" = ["B007", "B011", "N802", "PLE1142"]   # asserts, unused loop counters, math-convention names in tests
+"experiments/scripts/**" = ["E402"]        # late imports OK in entry-point scripts
 
 [tool.ruff.lint.isort]
 known-first-party = ["optimizers", "experiments"]

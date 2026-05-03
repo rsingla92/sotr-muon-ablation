@@ -10,13 +10,26 @@ Let `M` be the (Nesterov-mixed) momentum value at a given training step. Take it
 M = U · Σ · Vᵀ            with  Σ = diag(σ_1, …, σ_r),  σ_1 ≥ … ≥ σ_r ≥ 0
 ```
 
-Newton-Schulz iteration `f_q` (the polynomial Muon uses with `q` steps) operates *element-wise on the singular values* and **preserves U and V**:
+Newton-Schulz iteration `f_q` (the polynomial Muon uses with `q` steps) operates *element-wise on the singular values* and **preserves U and V** in exact arithmetic:
 
 ```
-NS(M, q) = U · diag(f_q(σ_1), …, f_q(σ_r)) · Vᵀ
+NS(M, q) = U · diag(f_q(σ_1), …, f_q(σ_r)) · Vᵀ        (in exact / fp32 arithmetic)
 ```
 
 This is a textbook property of NS: the iteration is `X ← aX + b·X·XᵀX + c·X·(XᵀX)²` (Muon's quintic), which only acts on the singular values when written in the SVD basis. As `q → ∞`, `f_q(σ) → 1` for all `σ ∈ (0, ∞)` (the orthogonal polar factor). For the Muon-tuned coefficients `(3.4445, -4.7750, 2.0315)` and `q = 5`, `f_5(σ) ≈ 1` to good approximation across the typical singular-value range.
+
+> **bf16 caveat — empirical, important.** Muon's `zeropower_via_newtonschulz5`
+> casts to bfloat16 internally for speed. In bf16, basis preservation holds
+> only approximately: writing `O = NS(M, q)` in M's singular basis (i.e.,
+> `Uᵀ O V`), the diagonal carries f_q(σ_i) but the off-diagonal portion is
+> *not* zero — empirically ~30% of the Frobenius norm at q=5 on a 64×64
+> heavy-tailed input. Re-running the same NS in fp32 gives essentially zero
+> off-diagonal. The implication: the σ-rescaling identity below is exact in
+> fp32 and approximate in bf16. **The blend's linearity in matrix space is
+> exact regardless of precision** — what bf16 perturbs is the assertion
+> "the blend lives entirely in the diagonal of M's basis." See sanity test #9
+> in `tests/sanity/test_spectral_identity.py` for what is actually
+> verified numerically.
 
 ## The α-blend in singular-value space
 
