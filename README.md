@@ -19,8 +19,9 @@ Two papers planned (see [`PROTOCOL.md`](PROTOCOL.md) for the contract):
 2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — repo layout and design rationale.
 3. [`CONTRIBUTING.md`](CONTRIBUTING.md) — coding and testing standards. Single source of truth for how code is written.
 4. [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) — how to define and run an experiment.
-5. [`docs/CLUSTER.md`](docs/CLUSTER.md) — UBC cluster (SLURM) specifics.
-6. [`knowledge/00_index.md`](knowledge/00_index.md) — literature summaries from the source PDFs.
+5. [`docs/CLUSTER.md`](docs/CLUSTER.md) — DRAC (Compute Canada) cluster specifics: account, modules, SLURM templates.
+6. [`docs/PHASE1.md`](docs/PHASE1.md) — Phase 1 reproduction procedure (PROTOCOL §6 gate).
+7. [`knowledge/00_index.md`](knowledge/00_index.md) — literature summaries from the source PDFs.
 
 ## Quick start
 
