@@ -1,5 +1,5 @@
 #!/bin/bash
-# Single-GPU SLURM template for DRAC (Narval / Cedar / Béluga / Graham).
+# Single-GPU SLURM template for DRAC Fir (SFU H100 cluster).
 # See docs/CLUSTER.md for cluster choice and account details.
 #
 # Usage:
@@ -10,7 +10,7 @@
 #SBATCH --job-name=optexp
 #SBATCH --account=rrg-timsbc
 #SBATCH --time=04:00:00
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --output=results/slurm/%x-%j.out

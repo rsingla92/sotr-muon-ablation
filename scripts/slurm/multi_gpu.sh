@@ -1,16 +1,17 @@
 #!/bin/bash
-# Single-node multi-GPU SLURM template for DRAC Narval (4× A100 80GB SXM).
+# Single-node multi-GPU SLURM template for DRAC Fir (4× H100).
 # Use for Phase 3 mid-scale validation. See docs/CLUSTER.md and PROTOCOL §5.
 #
 # Usage:
 #   sbatch scripts/slurm/multi_gpu.sh experiments/configs/phase3_sotr_500m.yaml
 #
-# For 8-GPU (Trillium H100 nodes) change --gres to gpu:h100:8.
+# For an 8-GPU node, change --gres to gpu:h100:8 (verify Fir node sizes via
+# `sinfo --Format=Nodes,Gres -p gpu`).
 
 #SBATCH --job-name=optexp_multi
 #SBATCH --account=rrg-timsbc
 #SBATCH --time=12:00:00
-#SBATCH --gres=gpu:a100l:4
+#SBATCH --gres=gpu:h100:4
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=32

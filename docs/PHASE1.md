@@ -1,6 +1,6 @@
 # Phase 1 — Reproduction
 
-The PROTOCOL §6 reproduction gate. **No new code from us.** We run upstream `external/modded-nanogpt/train_gpt.py` at single-GPU on DRAC and verify our setup reproduces a published Muon number within ±5%.
+The PROTOCOL §6 reproduction gate. **No new code from us.** We run upstream `external/modded-nanogpt/train_gpt.py` at single-GPU on **Fir (SFU H100 cluster)** and verify our setup reproduces a published Muon number within ±5%.
 
 If this passes, we know:
 
@@ -12,11 +12,13 @@ If it fails, **HALT** per PROTOCOL §11 — debugging the infrastructure comes b
 
 ## Reproduction target
 
-We're matching what the **Newton-Muon paper** (Du & Su, `arXiv:2604.01472`, April 2026) used as their Phase-1-equivalent baseline:
+We're matching the **Newton-Muon paper**'s (Du & Su, `arXiv:2604.01472`, April 2026) Phase-1-equivalent baseline:
 
 > "We begin with the short track Record #4 with a single NVIDIA H100 GPU."
 
-That's `external/modded-nanogpt/records/track_1_short/2024-10-10_Muon/eb5659d0-fb6a-49e5-a311-f1f89412f726.txt`, run on a single H100 instead of 8× via `--nproc_per_node=1`. The published 8× H100 record reaches **≤3.28 cross-entropy on FineWeb validation** in ~22 minutes; on a single GPU with `grad_accum=8`, expected wallclock is **~2.5–3.5 hours** depending on whether we get an A100 80GB SXM (`a100l`) or 40GB PCIe (`a100`).
+That's `external/modded-nanogpt/records/track_1_short/2024-10-10_Muon/eb5659d0-fb6a-49e5-a311-f1f89412f726.txt`, run on a single H100 instead of 8× via `--nproc_per_node=1`. **Fir gives us H100s — exactly the same GPU class the published record was generated on.** The reproduction is therefore as direct as it gets: same hardware, same script, same data, just `world_size=1` with `grad_accum=8` instead of `world_size=8`.
+
+The published 8× H100 record reaches **≤3.28 cross-entropy on FineWeb validation** in ~22 minutes. On a single H100 with `grad_accum=8`, expected wallclock is **~2.5–3.5 hours** (compute is roughly 8× longer because the gradient-accumulation steps replace data-parallelism, but per-token throughput on one H100 is the same as one of the eight). The job script requests 6h to leave headroom.
 
 **Our gate:** final FineWeb validation loss within ±5% of 3.28 → loss between 3.12 and 3.44.
 
@@ -25,8 +27,9 @@ That's `external/modded-nanogpt/records/track_1_short/2024-10-10_Muon/eb5659d0-f
 ### One-time setup (login node)
 
 ```bash
-# Choose a DRAC cluster. Narval recommended (large A100 pool).
-ssh narval.alliancecan.ca
+# Fir at SFU.
+ssh fir.alliancecan.ca       # if Fir uses its own login alias
+# (or whatever Fir's login hostname is — check DRAC docs / your account email)
 
 # Clone into project space (NOT $HOME — too small for this work).
 mkdir -p ~/projects/rrg-timsbc/$USER/code
@@ -64,7 +67,7 @@ Returns a job ID. Watch with:
 squeue -u $USER
 ```
 
-Typical wait: minutes to hours depending on Narval queue. Compute itself: ~3 hours.
+Typical wait: minutes to hours depending on Fir queue. Compute itself: ~3 hours on a single H100.
 
 ### Inspect the result
 
@@ -90,7 +93,7 @@ grep -i "val_loss\|validation" results/phase1/phase1_modded_nanogpt-$JOB/train.l
 | Final val loss outside [3.12, 3.44] but completed | Investigate. Likely a hardware mismatch (A100 vs H100 numerical drift) or an env issue. **Halt before Phase 2.** |
 | NaN / Inf / crash | Implementation or env bug. **Halt** per PROTOCOL §11. Inspect `env.txt`, share details. |
 | OOM | Job needs more memory; bump `--mem` in the SLURM script and retry. Not a reproduction failure. |
-| Hits wall time (8h) | Single-GPU was slower than expected. Either (a) bump `--time` to 12h, or (b) try `a100l` (80GB SXM) which is faster than `a100` (40GB PCIe). |
+| Hits wall time (6h) | Single-H100 was slower than expected. Bump `--time` to 12h. (We're already on the same GPU class as the published record, so wallclock should be predictable from "8× H100 → 22 min" → "1× H100 → ~3 h" with grad accumulation.) |
 
 ## What this Phase 1 does *not* prove
 

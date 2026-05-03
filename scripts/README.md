@@ -9,7 +9,7 @@ Repo-level utilities. Cluster-specific scripts live in `scripts/slurm/`.
 | `setup.sh` | Local-dev environment setup (any machine with Python + GPU) |
 | `setup_drac.sh` | DRAC login-node setup (modules + venv in `$SCRATCH` + FineWeb tokens + symlinks). Run once after cloning to a DRAC cluster. |
 | `slurm/single_gpu.sh` | Generic 1× GPU template (`rrg-timsbc`). For Phase 0/1 dev runs. |
-| `slurm/multi_gpu.sh` | Generic 4× A100 (Narval) / 8× H100 (Trillium) template. For Phase 3. |
+| `slurm/multi_gpu.sh` | 4× H100 single-node template (Fir). For Phase 3. |
 | `slurm/array_ablation.sh` | Phase 2 SLURM array (250 jobs, %24 concurrent). Reads from `experiments/configs/phase2/index.txt`. |
 | `slurm/phase1_modded_nanogpt.sh` | Phase 1 reproduction. Runs upstream `external/modded-nanogpt/train_gpt.py` at single GPU. No code changes from us. |
 

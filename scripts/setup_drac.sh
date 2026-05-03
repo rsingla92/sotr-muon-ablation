@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # DRAC (Digital Research Alliance of Canada) login-node setup.
 #
-# This is for first-time setup on a DRAC cluster (Narval / Cedar / Béluga / etc.)
-# under account rrg-timsbc. After running this once, you can submit SLURM jobs
-# from this directory.
+# Designed for Fir (SFU H100 cluster) but should work on any DRAC cluster
+# (Narval / Trillium / Cedar / Béluga / etc.) under account rrg-timsbc.
+# After running this once, you can submit SLURM jobs from this directory.
 #
 # Run on a *login* node (compute nodes have no internet). Idempotent — safe to
 # re-run. Takes ~5 minutes the first time (mostly the FineWeb token download).
@@ -85,7 +85,7 @@ if python -c "import torch; assert torch.__version__ >= '2.10'" 2>/dev/null; the
     echo "    torch already installed at $(python -c 'import torch; print(torch.__version__)')"
 else
     # DRAC's --no-index works because they pre-stage torch wheels.
-    # Falls back to PyPI if --no-index fails (rare on Narval).
+    # Falls back to PyPI if --no-index fails (rare on Fir/Narval; possible on Cedar).
     pip install --no-index torch || pip install "torch>=2.10"
 fi
 
