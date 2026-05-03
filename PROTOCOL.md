@@ -97,26 +97,43 @@ We follow the **modded-nanogpt speedrun protocol** as our canonical comparison h
 | LR schedule | Trapezoidal (warmup-stable-decay) — empirically optimal in the speedrun protocol. |
 | Weight decay | **0** for matrix optimizer (per speedrun convention); decoupled-AdamW WD optional for aux Adam. |
 
+**What's actually canonical across papers:**
+
+A literature survey (Apr–May 2026) of recent Muon-family papers (Dion, AdaMuon, NorMuon, Muon+, Mousse, Newton-Muon, Mano) shows hardware varies widely (single H100 → 8× A100 → 8× H200 → 4× H800 → 16× A100). What is consistent across *every* recent paper:
+
+- **FineWeb (or FineWeb-Edu) dataset** via modded-nanogpt's data pipeline
+- **modded-nanogpt's `train_gpt.py` training harness**
+- **Trapezoidal (warmup-stable-decay) LR schedule**
+- **`transformer.h.*` split for matrix optimizer; embed/head for AdamW**
+- **~20 hyperparameter attempts per baseline** for fair comparison
+- **`torch.compile` + BF16 mixed precision; FP8 matmul for head**
+
+These are the locked items. Hardware is **recorded per run** but not constrained beyond the requirement that any direct comparison (e.g., SOTR vs Muon) must run on the same hardware.
+
 **Hardware tier protocol (where each phase runs):**
 
-| Phase | Hardware | Why | Cost (approx) |
+| Phase | Hardware | Why | Cost estimate |
 |---|---|---|---|
-| **Phase 0 (sanity, dev)** | Any single GPU we have access to — UBC cluster A100/L4/3090 OK | Limit-case unit tests don't need scale | ~free |
-| **Phase 1 (reproduction)** | **8× H100** rented from PrimeIntellect (or UBC equivalent if available). Must match modded-nanogpt's official validation environment. | Reproducing published Muon numbers requires the published hardware | ~$2–4 per speedrun (5–10 min × $24/hr) |
+| **Phase 0 (sanity, dev)** | Any single GPU — UBC cluster A100/L4/H100 OK | Limit-case unit tests don't need scale | ~free |
+| **Phase 1 (reproduction)** | Single H100 or A100 (UBC or rented). Match a *published modded-nanogpt single-GPU baseline number* (e.g., the Newton-Muon paper's Record #4 on single H100). **Not** the official 8× H100 5-min record. | Reproducing the canonical optimizer-comparison protocol on whatever hardware we have. | ~$5–20 per run if rented |
 | **Phase 2 (ablation, 200 runs)** | 1–2× H100 or A100 with **reduced-scale config** (smaller `n_layer`/`n_embd`, matched token budget) | 200 runs × full-scale would be infeasible; reduced scale preserves directional signal | ~$5/run × 200 = ~$1k |
-| **Phase 3 (mid-scale validation, ~20 runs)** | **8× H100** at full speedrun config, plus 300–500M extension | Primary claims must be at full canonical setup | ~$200–500 × 20 = ~$4–10k |
-| **Phase 4 (release replication)** | 8× H100 once on PrimeIntellect | External-replication evidence | ~$50 |
+| **Phase 3 (mid-scale validation, ~20 runs)** | 4–8× H100 (or whatever multi-GPU we have) at full modded-nanogpt config | Primary claims at full canonical setup; matches Mousse/NorMuon-class papers | ~$100–300 × 20 = ~$2–6k |
+| **Phase 4 (release replication)** | Whatever Phase 3 used | External-replication evidence | ~$50 |
 
-**Estimated total compute budget:** $5–15k for Paper 1, conservatively. Significantly lower if UBC GPU cluster covers ablations.
+**Estimated total compute:** ~$3–8k for Paper 1 if we rent. Significantly less if UBC cluster covers Phases 0–2.
 
-**Any cross-hardware comparison is explicitly flagged in tables and cannot be the basis for a primary claim.** The Phase 2 reduced-scale ablation is *not* a primary claim — it filters configurations for Phase 3 to validate at full scale.
+**Hardware constraints for *valid* claims:**
+- Any direct A-vs-B comparison (SOTR vs Muon, etc.) runs on **identical hardware** — same GPU type, same count, same node configuration, same data sharding.
+- Hardware is recorded with every result table.
+- We do **not** claim the official 8× H100 speedrun record. We claim "matches/improves Muon under hardware-matched conditions on FineWeb with modded-nanogpt's harness." This is exactly what Newton-Muon (April 2026) and similar papers claim.
+- Cross-hardware comparison (e.g., our Phase 2 reduced-scale on A100 vs Phase 3 full-scale on H100) is **never** the basis for a primary claim. Phase 2 is a *filter* for Phase 3.
 
 **Reduced-scale config for Phase 2 (proposed; final values during Phase 0 sanity):**
 - Same model architecture as modded-nanogpt's `train_gpt.py`
 - Reduce `n_layer` 12→6, `n_embd` 768→384, `n_head` 6→3 (≈ 25M params)
 - Reduce target tokens proportionally to maintain Chinchilla-like ratio
 - Same validation loss target scaled appropriately (TBD via Phase 1 calibration)
-- Single H100 or A100 acceptable; record GPU type per result
+- Single H100/A100/L4 acceptable; record GPU type per result
 
 ---
 
@@ -300,13 +317,26 @@ Pre-registration for Paper 2 (Muon-family in RLHF/DPO/GRPO) will be drafted as a
 
 ## Amendments
 
-### Amendment 2026-05-02 — Lock §5 hardware to modded-nanogpt speedrun protocol
+### Amendment 2026-05-02 (revised) — Lock the *protocol*, not the hardware
 *(Pre-Phase-0; no experimental data yet → free amendment.)*
 
-**Change:** §5 (Hardware and software lock) updated to specify the modded-nanogpt 8× H100 speedrun protocol as the canonical comparison harness. Phases now have explicit hardware tiers: dev (any GPU) → Phase 1 reproduction (8× H100, must match published env) → Phase 2 ablations (smaller GPU + reduced model config) → Phase 3 validation (back to 8× H100).
+**Change:** §5 (Hardware and software lock) revised. The earlier draft over-locked on 8× H100. After surveying recent Muon-family papers (Dion, AdaMuon, NorMuon, Muon+, Mousse, Newton-Muon, Mano) for their actual hardware:
 
-**Rationale:** The user asked for a fair comparison protocol. Inspection of `external/modded-nanogpt/records/track_1_short/2024-10-29_Optimizers/README.md` showed AdamW vs DistributedShampoo vs SOAP vs Muon were already benchmarked apples-to-apples on 8× H100 with a documented protocol (zero WD, trapezoidal schedule, ~20 hyperparameter attempts each, `transformer.h.*` for matrix optimizers, embed/head for Adam). This is the conventional setup recent Muon papers (Muon+, NorMuon, AdaMuon) all benchmark against. Adopting it gives us free comparability.
+- Newton-Muon: single H100 or single L40S
+- Mano: 4× H800 PCIe (and 4× RTX-4090 for smallest models)
+- Mousse: 8× H200
+- NorMuon: 8× A100 (single node) for ≤350M; 16× A100 for 1.1B+
+- Muon+: H100 or A100, count unspecified
+- Dion: H100, count unspecified
+- AdaMuon: not specified at all
 
-**Cost note:** Estimated total compute ~$5–15k via PrimeIntellect rentals; lower if UBC cluster covers Phase 2 ablations.
+**Hardware varies wildly across labs.** What's locked across every paper is the *protocol*: FineWeb dataset, modded-nanogpt's `train_gpt.py` harness, trapezoidal LR schedule, `transformer.h.*` split, ~20 HP attempts per baseline, BF16 + FP8-head precision. We adopt the protocol and treat hardware as recorded-but-not-constrained, with the rule that any direct A-vs-B comparison must run on identical hardware.
 
-**Constraint added:** No primary claim may be supported by reduced-scale Phase 2 numbers alone. Phase 2 is a *filter*; Phase 3 at full canonical scale is what the paper rests on.
+**Practical implication:** We can run our Phase 1 reproduction on whatever single GPU we have (Newton-Muon precedent: single H100 against modded-nanogpt records). Phase 2 ablations on 1–2× H100/A100 with reduced model config. Phase 3 on 4–8× H100 if available, or single-node multi-GPU equivalent. Estimated cost drops from ~$5–15k → ~$3–8k.
+
+**No claim of the official 8× H100 5-min speedrun record.** Our claims are of the form "SOTR matches/improves Muon under hardware-matched conditions on FineWeb with modded-nanogpt's harness" — exactly the framing recent papers (Newton-Muon, Mano) use.
+
+**Constraint preserved:** No primary claim may be supported by Phase 2 reduced-scale numbers alone. Phase 2 is a *filter* for Phase 3.
+
+### Amendment 2026-05-02 — Lock §5 hardware to modded-nanogpt speedrun protocol *(SUPERSEDED by revision above)*
+Original wording over-locked on 8× H100. Replaced because hardware is not standardized across papers. See revised amendment immediately above.
