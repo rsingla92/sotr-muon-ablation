@@ -19,7 +19,8 @@
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module purge
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 source ~/scratch/optimizer_experiments/venv/bin/activate
 
 if [[ -z "${1:-}" ]]; then

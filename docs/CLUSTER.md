@@ -67,7 +67,7 @@ git clone --recurse-submodules git@github.com:rsingla92/optimizer_experiments.gi
 cd optimizer_experiments
 
 # Module stack — DRAC's StdEnv 2023 has Python 3.11/3.12 + CUDA available.
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 
 # Build venv in scratch (HOME is too small for torch + tokens + checkpoints).
 mkdir -p ~/scratch/optimizer_experiments
@@ -112,7 +112,7 @@ Templates live in `scripts/slurm/`. All use `--account=rrg-timsbc`.
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 source ~/scratch/optimizer_experiments/venv/bin/activate
 
 python experiments/train.py --config "$1"
@@ -143,7 +143,7 @@ For Phase 3 (4× H100 single-node on Fir):
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 source ~/scratch/optimizer_experiments/venv/bin/activate
 
 torchrun --standalone --nproc_per_node=4 \
@@ -167,7 +167,7 @@ For Phase 2's 250-run ablation grid (10 cells × 5 seeds × 5 LRs):
 
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 source ~/scratch/optimizer_experiments/venv/bin/activate
 
 # Map array index to a generated config file.
@@ -179,14 +179,16 @@ python experiments/train.py --config "$CONFIG"
 
 ## DRAC-specific gotchas (Fir)
 
-1. **GPU type:** Fir has H100 80GB only. Use `--gres=gpu:h100:1` (or `:4`, `:8` for multi-GPU). Verify the exact label with `sinfo --Format=Gres -p gpu` on first login — DRAC sometimes uses suffixes like `h100:80gb` or `h100_80g` depending on cluster generation.
-2. **`module load StdEnv/2023`** before anything else. Newer Fir may default to `StdEnv/2025` — if `StdEnv/2023` isn't available, try `StdEnv/2025` and update `setup_drac.sh` accordingly.
-3. **No internet on compute nodes.** Pre-download FineWeb tokens on the login node (`cached_fineweb10B.py 9` from inside `external/modded-nanogpt/`). `pip install` must happen on login nodes too.
-4. **`$SLURM_TMPDIR` is per-job**, wiped after the job ends. Don't put checkpoints there. Use it for read-only data shards if I/O bandwidth matters.
-5. **Time format:** `--time=04:00:00` (HH:MM:SS) or `--time=2-00:00:00` (days-HH:MM:SS). Max wallclock varies; on Fir the standard limit is 7 days for `rrg-*` accounts but check `scontrol show partition` to confirm.
-6. **Apptainer/Singularity** is available on DRAC if we want a reproducible container off `external/modded-nanogpt/Dockerfile`. Recommended once Phase 1 reproduction is locked.
-7. **Submit from project space, not `$HOME`.** `$SLURM_SUBMIT_DIR` becomes the working dir; project space has the large quota.
-8. **AMD Epyc CPU host on Fir.** Different from older Intel-host clusters; if any pinned wheel was built only for x86_64-AVX-512-Intel, it may fail. Build from source or use DRAC's `--no-index` wheelhouse.
+1. **`arrow` module must be loaded BEFORE the venv is activated.** DRAC ships a "noinstall" stub `pyarrow` wheel (`pyarrow_noinstall-9999+dummy`) that fails `pip install` deliberately, with a message pointing at `module load arrow`. `datasets` (used by modded-nanogpt for FineWeb) depends transitively on `pyarrow`, so without the arrow module the install of our package silently breaks. Our `setup_drac.sh` and all SLURM scripts already include `arrow` in the `module load` line — but if you activate the venv interactively, remember to run `module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow` first. See: <https://docs.alliancecan.ca/wiki/Arrow>
+2. **GPU type:** Fir has H100 80GB only. Use `--gres=gpu:h100:1` (or `:4`, `:8` for multi-GPU). Verify the exact label with `sinfo --Format=Gres -p gpu` on first login — DRAC sometimes uses suffixes like `h100:80gb` or `h100_80g` depending on cluster generation.
+3. **`module load StdEnv/2023`** before anything else. Newer Fir may default to `StdEnv/2025` — if `StdEnv/2023` isn't available, try `StdEnv/2025` and update `setup_drac.sh` accordingly.
+4. **`setuptools<82` for torch compatibility.** DRAC's `torch 2.11.0+computecanada` declares `setuptools<82` in its metadata. `setup_drac.sh` pins `setuptools<82` explicitly so pip doesn't print resolver warnings (the warnings are harmless but noisy).
+5. **No internet on compute nodes.** Pre-download FineWeb tokens on the login node (`cached_fineweb10B.py 9` from inside `external/modded-nanogpt/`). `pip install` must happen on login nodes too.
+6. **`$SLURM_TMPDIR` is per-job**, wiped after the job ends. Don't put checkpoints there. Use it for read-only data shards if I/O bandwidth matters.
+7. **Time format:** `--time=04:00:00` (HH:MM:SS) or `--time=2-00:00:00` (days-HH:MM:SS). Max wallclock varies; on Fir the standard limit is 7 days for `rrg-*` accounts but check `scontrol show partition` to confirm.
+8. **Apptainer/Singularity** is available on DRAC if we want a reproducible container off `external/modded-nanogpt/Dockerfile`. Recommended once Phase 1 reproduction is locked.
+9. **Submit from project space, not `$HOME`.** `$SLURM_SUBMIT_DIR` becomes the working dir; project space has the large quota.
+10. **AMD Epyc CPU host on Fir.** Different from older Intel-host clusters; if any pinned wheel was built only for x86_64-AVX-512-Intel, it may fail. Build from source or use DRAC's `--no-index` wheelhouse.
 
 ## Reproducibility within DRAC
 

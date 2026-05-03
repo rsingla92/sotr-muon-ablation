@@ -45,12 +45,22 @@ git submodule update --init --recursive
 # ---------------------------------------------------------------------------
 # 2. DRAC modules
 # ---------------------------------------------------------------------------
+# IMPORTANT: arrow MUST be loaded BEFORE the venv is activated, because DRAC
+# ships a "noinstall" stub pyarrow wheel that fails on purpose with a message
+# pointing to the arrow module. `datasets` (used by modded-nanogpt for FineWeb
+# token loading) depends transitively on pyarrow → without the arrow module,
+# pip install of our package fails. See:
+#   https://docs.alliancecan.ca/wiki/Arrow
 echo ""
-echo "==> Loading DRAC modules (StdEnv/2023, python/3.12, cuda/12.6, gcc/12)..."
+echo "==> Loading DRAC modules (StdEnv/2023, python/3.12, cuda/12.6, gcc/12, arrow)..."
 module purge
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 || {
-    echo "ERROR: Module load failed. Available modules:" >&2
-    module avail 2>&1 | head -30
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow || {
+    echo "ERROR: Module load failed. Available arrow versions:" >&2
+    module spider arrow 2>&1 | head -40
+    echo "" >&2
+    echo "If the arrow module isn't available with this StdEnv, try:" >&2
+    echo "  module spider arrow            # see what's available" >&2
+    echo "  module load arrow/<version>    # explicit version" >&2
     exit 1
 }
 
@@ -71,7 +81,10 @@ echo "==> Activating venv..."
 # shellcheck source=/dev/null
 source "$VENV/bin/activate"
 
-python -m pip install --upgrade pip wheel setuptools
+# NB: torch 2.11.0+computecanada has a strict `setuptools<82` constraint in its
+# metadata. DRAC's wheelhouse may pull setuptools 82.x, which causes a *resolver
+# warning* (not an error). We pin <82 explicitly to keep pip happy.
+python -m pip install --upgrade pip wheel "setuptools<82"
 
 # ---------------------------------------------------------------------------
 # 4. PyTorch (DRAC wheelhouse)
@@ -193,6 +206,17 @@ try:
     print("  SOTR: OK")
 except ImportError as e:
     print(f"  SOTR: FAIL — {e}")
+try:
+    import pyarrow  # noqa: F401
+    print(f"  pyarrow: OK (from arrow module, v{pyarrow.__version__})")
+except ImportError as e:
+    print(f"  pyarrow: FAIL — {e}")
+    print("  → did you 'module load arrow' BEFORE activating venv?")
+try:
+    import datasets  # noqa: F401
+    print("  datasets: OK")
+except ImportError as e:
+    print(f"  datasets: FAIL — {e}")
 PYEOF
 
 # ---------------------------------------------------------------------------
@@ -204,9 +228,12 @@ cat <<EOF
 
 Next steps:
   1. Verify sanity gate (offline, fast):
-       module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+       module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
        source $VENV/bin/activate
        make sanity
+
+     (The arrow module must be loaded BEFORE activating the venv, every time.
+     SLURM scripts already do this; this is only for interactive sessions.)
 
   2. Submit Phase 1 reproduction:
        sbatch scripts/slurm/phase1_modded_nanogpt.sh

@@ -48,7 +48,7 @@ cd optimizer_experiments
 Before submitting any compute job, verify the local sanity tests still pass:
 
 ```bash
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 source ~/scratch/optimizer_experiments/venv/bin/activate
 make sanity
 ```

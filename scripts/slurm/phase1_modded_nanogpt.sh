@@ -34,7 +34,7 @@ set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
 module purge
-module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
+module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12 arrow
 
 VENV="${SCRATCH:-$HOME/scratch}/optimizer_experiments/venv"
 if [[ ! -d "$VENV" ]]; then
