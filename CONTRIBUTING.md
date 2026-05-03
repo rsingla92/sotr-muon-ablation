@@ -30,17 +30,26 @@ docs/            Architecture, cluster, experiment docs
 
 ### Formatting and linting
 
-Enforced by `ruff` (config in `pyproject.toml`). Run before every commit:
+Enforced by `ruff` (config in `pyproject.toml`). Run locally before pushing:
 
 ```bash
 make lint        # check
 ruff format .    # auto-format
 ```
 
-Pre-commit hooks (`.pre-commit-config.yaml`) run `ruff check` and `ruff format` automatically on `git commit`. To install:
+**CI runs the same checks on every push and PR** to `main` (`.github/workflows/lint.yml`). A push that fails ruff lint or format check will be visible in the GitHub Actions tab. Local fixing is faster than waiting for CI feedback, but CI is the source of truth.
+
+**Pre-commit hooks are optional and not auto-installed.** The hook configuration is in `.pre-commit-config.yaml` if you want immediate-at-commit feedback locally; install with:
 
 ```bash
 pip install pre-commit && pre-commit install
+```
+
+On DRAC, this is **discouraged** — pre-commit's cache lives in `$HOME/.cache/pre-commit/` by default, which is on a slow network filesystem; first commits take minutes. If you want pre-commit on DRAC anyway, redirect the cache to scratch:
+
+```bash
+export PRE_COMMIT_HOME="$SCRATCH/pre-commit-cache"
+pre-commit install
 ```
 
 ### Python

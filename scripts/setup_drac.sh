@@ -128,13 +128,19 @@ echo "==> Installing modded-nanogpt's runtime requirements (skipping torch)..."
 grep -v '^torch==' external/modded-nanogpt/requirements.txt | pip install -r /dev/stdin
 
 # ---------------------------------------------------------------------------
-# 8. Pre-commit hooks (best effort — local-dev concern)
+# 8. Pre-commit hooks — SKIPPED on DRAC
 # ---------------------------------------------------------------------------
-if command -v pre-commit >/dev/null 2>&1; then
-    echo ""
-    echo "==> Installing pre-commit hooks..."
-    pre-commit install || true
-fi
+# Pre-commit's hook cache lives in $HOME/.cache/pre-commit by default, which
+# on DRAC is on a slow network filesystem. The first commit takes minutes
+# while pre-commit downloads ruff + sets up envs.
+#
+# We've moved ruff lint + format to GitHub Actions (.github/workflows/lint.yml)
+# so checks happen on push/PR instead of at commit time. If you want pre-commit
+# locally on DRAC anyway, run:
+#     export PRE_COMMIT_HOME="$SCRATCH/pre-commit-cache"
+#     pre-commit install
+echo ""
+echo "==> Skipping pre-commit hooks (lint runs in GitHub Actions instead)."
 
 # ---------------------------------------------------------------------------
 # 9. Filesystem symlinks

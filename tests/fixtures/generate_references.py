@@ -1,9 +1,18 @@
 """Generate frozen reference trajectories for sanity tests #4 and #5.
 
-Run once. Output `.pt` files are committed to the repo so tests run offline.
+Output ``.pt`` files are committed to the repo so tests run offline.
 
-Regenerate only when ``external/Muon`` or ``external/lion-pytorch`` is intentionally
-bumped to a new pinned commit (record in PROTOCOL.md §15 amendment).
+**Fixtures are tied to the torch build** that generates them. ``torch.randn`` is
+not bit-identical across torch builds (e.g., ``2.11.0`` vs ``2.11.0+computecanada``)
+because they link different math libraries (MKL, AOCL, Accelerate, etc.). The
+``test_lion_match`` / ``test_muon_match`` sanity tests skip themselves if the
+current torch build doesn't match the build recorded in the fixture, with a
+clear pointer to regenerate.
+
+Regenerate when:
+- ``external/Muon`` or ``external/lion-pytorch`` is intentionally bumped to a
+  new pinned commit (record in PROTOCOL.md §15 amendment), OR
+- The active torch build changes (e.g., switching between local and DRAC).
 
 Usage:
     python -m tests.fixtures.generate_references
@@ -51,7 +60,8 @@ def gen_lion_reference() -> None:
     out_path = OUT_DIR / "lion_reference.pt"
     torch.save(
         {
-            "version": 1,
+            "version": 2,  # bumped: now records torch_version
+            "torch_version": torch.__version__,
             "shape": SHAPE,
             "n_steps": N_STEPS,
             "initial_seed": 0,
@@ -65,7 +75,7 @@ def gen_lion_reference() -> None:
         },
         out_path,
     )
-    print(f"wrote {out_path}  ({out_path.stat().st_size / 1024:.1f} KB)")
+    print(f"wrote {out_path}  ({out_path.stat().st_size / 1024:.1f} KB; torch={torch.__version__})")
 
 
 def gen_muon_reference() -> None:
@@ -89,7 +99,8 @@ def gen_muon_reference() -> None:
     out_path = OUT_DIR / "muon_reference.pt"
     torch.save(
         {
-            "version": 1,
+            "version": 2,  # bumped: now records torch_version
+            "torch_version": torch.__version__,
             "shape": SHAPE,
             "n_steps": N_STEPS,
             "initial_seed": 0,
@@ -103,7 +114,7 @@ def gen_muon_reference() -> None:
         },
         out_path,
     )
-    print(f"wrote {out_path}  ({out_path.stat().st_size / 1024:.1f} KB)")
+    print(f"wrote {out_path}  ({out_path.stat().st_size / 1024:.1f} KB; torch={torch.__version__})")
 
 
 def main() -> int:
