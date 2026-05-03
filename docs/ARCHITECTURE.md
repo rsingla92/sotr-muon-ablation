@@ -36,13 +36,9 @@ optimizer_experiments/
 │   ├── lion-pytorch/       lucidrains/lion-pytorch — Lion reference
 │   └── dion/               microsoft/dion — Dion reference
 │
-├── optimizers/             Our optimizer implementations
-│   ├── __init__.py         Public API (SOTR, Lion, MuonLike, ...)
-│   ├── _newton_schulz.py   Shared NS polynomial routine
-│   ├── _utils.py           Frobenius norm, trust-region helpers
-│   ├── sotr.py             SOTR optimizer
-│   ├── muon_like.py        Sanity baseline (= SOTR with α=1)
-│   └── lion.py             Lion (vendored from external/lion-pytorch)
+├── optimizers/             Our optimizer implementations (only what's novel)
+│   ├── __init__.py         Public API: re-exports SOTR + Lion (from lion_pytorch)
+│   └── sotr.py             SOTR optimizer — the ONLY novel file we write
 │
 ├── experiments/            Run scripts + configs
 │   ├── _configs.py         Typed config dataclasses
@@ -83,15 +79,20 @@ optimizer_experiments/
 
 ### `optimizers/`
 
-Each optimizer is a single file. Public API exported from `__init__.py`:
+We write only what's novel: **`sotr.py`**. Everything else is imported from canonical references.
 
 ```python
-from optimizers import SOTR, Lion, MuonLike
+from optimizers import SOTR, Lion          # SOTR is ours; Lion is re-exported from lion_pytorch
+from muon import Muon, MuonWithAuxAdam     # Muon imported directly from external/Muon
 ```
 
-Shared helpers (`_newton_schulz`, `_utils`) are underscore-prefixed → not part of public API. They live in this directory only because they're optimizer-specific.
+**Why we don't write our own NS / Lion / MuonLike.**
 
-The Newton-Schulz polynomial iteration is implemented **once**, in `_newton_schulz.py`. Both SOTR and MuonLike call it with different iteration counts. We do not maintain separate NS implementations.
+- **Newton-Schulz iteration** is in `external/Muon/muon.py` as `zeropower_via_newtonschulz5(G, steps)`. It's the precisely-tuned, multi-author–optimized routine that all the speedrun records use. SOTR imports it directly. Reimplementing risks subtle bugs in the polynomial coefficients and out-tunes nothing.
+- **Lion** is in `external/lion-pytorch` as `lion_pytorch.Lion`. Faithful Chen 2023 reference (lucidrains, MIT-licensed, pip-installable from the submodule). Reimplementing risks the well-known `betas` / sign-update / decoupled-WD bugs.
+- **MuonLike** doesn't exist as a separate optimizer. It's the configuration `SOTR(α=1, Δ=∞, q=5)`, which by construction produces the same updates as Muon. Sanity test #1 (PROTOCOL §7) verifies this byte-equivalence on a synthetic problem.
+
+This keeps the surface area for bugs to a single ~100-line `sotr.py`.
 
 ### `experiments/`
 
@@ -127,9 +128,9 @@ This keeps our git history clean while preserving exact reproducibility.
 
 ## Rationale for choices
 
-### Why a flat `optimizers/` instead of `optimizers/sotr/`, `optimizers/lion/` package-per-optimizer?
+### Why is `optimizers/` so empty?
 
-We have ~5 optimizers planned. Each is < 300 lines. Per-optimizer packages would add directory bloat for no benefit. If we ever ship 20 optimizers, we revisit.
+Because we write exactly one optimizer (SOTR). Every baseline — Muon, Lion, AdamW — is imported from a canonical reference (`external/Muon`, `external/lion-pytorch`, `torch.optim.AdamW`). The "MuonLike" sanity baseline is a SOTR configuration, not a separate file. This is deliberate: each line of code we write is a line we have to maintain and test, and bugs in baselines invalidate the comparison.
 
 ### Why YAML configs and not Hydra / OmegaConf / argparse?
 
@@ -159,8 +160,13 @@ Sanity tests are *gating* (PROTOCOL §7 — must pass before reporting anything)
 
 | Type of code | Location |
 |---|---|
-| Optimizer step logic | `optimizers/<name>.py` |
-| Math helper used by multiple optimizers | `optimizers/_<helper>.py` |
+| Newton-Schulz iteration | **Don't write — import from `external/Muon`** (`from muon import zeropower_via_newtonschulz5`) |
+| Lion baseline | **Don't write — import from `external/lion-pytorch`** (`from lion_pytorch import Lion`) |
+| Muon baseline | **Don't write — import from `external/Muon`** (`from muon import Muon, MuonWithAuxAdam`) |
+| MuonLike sanity baseline | **Don't write — it's the configuration `SOTR(α=1, Δ=∞, q=5)`**; equivalence proven by sanity test #1 |
+| Frobenius norm | `tensor.norm()` or `torch.linalg.norm()` — built-in |
+| Momentum buffer / weight decay machinery | `torch.optim.Optimizer` base class — built-in |
+| **SOTR step logic** | `optimizers/sotr.py` (the one novel file) |
 | Config dataclass | `experiments/_configs.py` |
 | YAML config | `experiments/configs/<purpose>.yaml` |
 | Training loop entry point | `experiments/train.py` |
@@ -169,8 +175,8 @@ Sanity tests are *gating* (PROTOCOL §7 — must pass before reporting anything)
 | Repo setup, environment | `scripts/setup.sh` |
 | Sanity gate test | `tests/sanity/test_<thing>.py` |
 | Pure-function unit test | `tests/unit/test_<thing>.py` |
-| Adapted from external repo | Vendor with header; sanity-test against original |
 | Reusable across experiments | If used 3+ times → factor; else inline |
+| Helper used in 2+ files | Inline copy until the third use case actually arrives |
 
 ## What this repo does *not* contain
 

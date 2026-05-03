@@ -88,7 +88,7 @@ We follow the **modded-nanogpt speedrun protocol** as our canonical comparison h
 | Framework | PyTorch ≥ 2.10 (matching modded-nanogpt's pinned `torch==2.10` requirement) |
 | Python | 3.12.7 (Docker image) |
 | CUDA | 12.6 (Docker image) |
-| Precision | BF16 mixed; **FP32 NS body**; FP8 matmul where modded-nanogpt enables it (head only) |
+| Precision | BF16 mixed; **BF16 NS body** (matches Muon's canonical impl in `external/Muon/muon.py` — `zeropower_via_newtonschulz5` runs the polynomial in bf16); FP8 matmul where modded-nanogpt enables it (head only). FP32 NS body available as an optional ablation if numerical issues are observed. |
 | Determinism | `torch.manual_seed(seed)`, deterministic CUDA where feasible. NS may use non-deterministic kernels — flagged when so. |
 | Multi-GPU | `torchrun --standalone --nproc_per_node=8` |
 | Compile | `torch.compile` opt-in; modded-nanogpt convention: `coordinate_descent_tuning` is **banned** for speedrun comparisons (>30 min compile). We follow this. |
@@ -163,16 +163,34 @@ If we can't hit these, we don't have a working baseline, and the comparison is m
 
 ## 7. Sanity checks (Phase 0 → Phase 1 gate)
 
-All must pass before proceeding to Phase 2. Each is a unit test in `tests/`.
+All must pass before proceeding to Phase 2. Each is a unit test in `tests/sanity/`.
 
-1. **Limit case I:** `SOTR(α=1, Δ=∞, q=5)` produces parameter updates within `||ΔW_SOTR - ΔW_Muon||_F / ||ΔW_Muon||_F < 1e-5` step-by-step over 50 steps on a synthetic 256×256 problem. Same NS polynomial.
-2. **Limit case II:** `SOTR(α=0, q=0)` produces updates within 1e-7 of `G / (||G||_F + ε)`.
-3. **Limit case III:** `SOTR(α=0, q=2)` does *not* match Muon (we want the partial-NS to be *visible*).
-4. **Lion match:** Our `Lion` impl matches Chen 2023 reference impl on a saved 100-step trajectory within 1e-5.
-5. **Muon match:** Our integration of `KellerJordan/Muon` agrees with running their repo directly on the same seed for 100 steps within 1e-5.
-6. **Trust region triggers correctly:** with `α=1, Δ=0.01, q=5`, hit-rate >50% on a problem where typical update is O(1).
-7. **Determinism:** two runs with same seed and code produce bit-identical loss curves on CPU; on GPU, within 1e-4 (tolerance for non-deterministic CUDA ops).
-8. **Param-group split correctness:** Muon and SOTR apply only to `transformer.h.*` 2D weights; embeddings/head/biases/LayerNorm get AdamW. Verified by inspecting `param_groups` printout.
+We use the **Muon-compatible step ordering** for SOTR (see Amendment in §15 for the design fix versus the original PDF pseudocode). Concretely SOTR's per-step update is:
+
+```
+1. momentum.lerp_(grad, 1-β)                                  # update buffer
+2. M = grad.lerp(momentum, β) if nesterov else momentum       # Nesterov-mixed value
+3. O = zeropower_via_newtonschulz5(M, steps=q)                # NS the mixed value
+4. U = α·O + (1-α)·M / (||M||_F + ε)                          # SOTR α-blend
+5. if ||U||_F > Δ: U *= Δ / ||U||_F                            # SOTR Frobenius cap
+6. U *= max(1, m/n)**0.5                                       # match Muon's per-shape RMS scale
+7. p -= lr · U                                                  # decoupled WD applied separately
+```
+
+At `α=1, Δ=∞`, line 4 collapses to `U = O` and line 5 is a no-op, so steps 1–3, 6–7 reproduce Muon's `muon_update` exactly.
+
+**Sanity checks:**
+
+1. **Limit case I (Muon equivalence):** `SOTR(α=1, Δ=∞, q=5)` produces parameter updates within `||ΔW_SOTR - ΔW_Muon||_F / ||ΔW_Muon||_F < 1e-5` step-by-step over 50 steps on a synthetic 256×256 problem, when SOTR shares the NS routine and per-shape scaling with `external/Muon/muon.py`. Verifies the corner-case design and rules out ordering bugs.
+2. **Limit case II (no-orth limit):** `SOTR(α=0, q=0)` produces updates equal to Frobenius-normalized (Nesterov-)momentum with per-shape RMS scaling: `U = (M / ||M||_F) · max(1, m/n)**0.5`. Tolerance 1e-6.
+3. **Limit case III (partial NS visible):** `SOTR(α=1, q=2)` is *measurably different* from `SOTR(α=1, q=5)` (Muon) — `||ΔW_SOTR_q2 - ΔW_Muon||_F / ||ΔW_Muon||_F > 1e-3` after the first NS step. Ensures the `q` knob is wired correctly.
+4. **Lion match:** The `Lion` baseline imported from `external/lion-pytorch` (lucidrains' reference impl) matches a frozen 100-step reference trajectory in `tests/fixtures/lion_reference.pt` within 1e-5. Catches accidental version drift in the upstream submodule.
+5. **Muon match:** The `Muon` baseline imported from `external/Muon` matches a frozen 100-step reference trajectory in `tests/fixtures/muon_reference.pt` within 1e-5. Same purpose as #4.
+6. **Trust region triggers:** with `SOTR(α=1, Δ=0.01, q=5)`, the per-matrix Frobenius cap fires on >50% of steps for a problem where typical update Frobenius norm is O(1). Verifies the cap path is reachable.
+7. **Determinism:** two runs with same seed and code produce bit-identical loss curves on CPU; on GPU, within 1e-4 (tolerance for non-deterministic CUDA kernels in NS).
+8. **Param-group split correctness:** SOTR is applied only to 2D parameters in `transformer.h.*`; embeddings/head/biases/LayerNorm receive AdamW. Verified by inspecting `param_groups` after construction.
+
+**Coverage meta-check:** `tests/sanity/test_sanity_coverage.py` fails if any of #1–#8 lacks a corresponding test file. Prevents drift between this list and the test suite.
 
 Failure of any sanity check halts progress until fixed. No exceptions.
 
@@ -318,6 +336,27 @@ Pre-registration for Paper 2 (Muon-family in RLHF/DPO/GRPO) will be drafted as a
 ---
 
 ## Amendments
+
+### Amendment 2026-05-02 (design fix) — Lock SOTR step ordering and NS precision
+*(Pre-Phase-0; no experimental data yet → free amendment.)*
+
+**Two related changes**, both informed by reading `external/Muon/muon.py` and reconciling against the SOTR PDF's draft pseudocode:
+
+**(a) SOTR step ordering — corrected to be Muon-compatible.**
+
+The SOTR design PDF specified the per-step order as `NS(grad) → α-blend → Frobenius cap → momentum → update`. With this order, at `α=1, Δ=∞, q=5` the resulting trajectory is `momentum(NS(grad))`, while Muon computes `NS(Nesterov(grad, momentum))`. These are not equivalent, so the PDF's claim "α=1 reduces to Muon" is wrong as written.
+
+Since "strictly contains Muon at α=1" is the central rhetorical claim of the SOTR design, we adopt the **Muon-compatible ordering** documented in §7: momentum-update first, then form the Nesterov-mixed value `M`, then NS, then α-blend (between `O = NS(M)` and `M / ||M||_F`), then Frobenius cap, then per-shape RMS scaling, then weight update. At `α=1, Δ=∞, q=5` this is byte-equivalent to `external/Muon`'s `muon_update`.
+
+The α-blend interpolates `M`'s orthogonalized form against `M`'s Frobenius-normalized form. At `α=0, q=0` SOTR reduces to Frobenius-normalized (Nesterov-)momentum SGD with per-shape RMS scaling — a clean limit, similar in spirit to AuON's "unit-norm momentum."
+
+**(b) NS body precision — bf16, not fp32.**
+
+Earlier wording in §5 specified "FP32 NS body." Inspection of `external/Muon/muon.py` shows the canonical `zeropower_via_newtonschulz5` runs the polynomial in **bfloat16**, and every modded-nanogpt speedrun record uses bf16 NS. Forcing fp32 would mean SOTR(α=1) no longer matches Muon at the bit level. We amend §5 to default to bf16 NS body (matching Muon) and reserve fp32 NS as an optional ablation if numerical issues are observed.
+
+**Implementation consequence.** `optimizers/sotr.py` is the *only* novel file. It imports `zeropower_via_newtonschulz5` from `external/Muon` (no reimplementation). Lion is imported from `external/lion-pytorch`. There is no separate `MuonLike` optimizer — the equivalence is established by sanity test #1 over the parameterized SOTR.
+
+**No effect on hypotheses or success criteria** (H1–H4, kill switches). The fix moves an internal design detail; the headline claims unchanged.
 
 ### Amendment 2026-05-02 (UBC cluster) — Switch to UBC compute, drop dollar estimates
 *(Pre-Phase-0; no experimental data yet → free amendment.)*

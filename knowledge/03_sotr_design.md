@@ -2,6 +2,8 @@
 
 The user's lead design idea. From `Research Ideas - SOTR Optimizer Design.pdf`.
 
+> **Note (2026-05-02):** This file summarizes the SOTR design as written in the source PDF. The PDF's pseudocode has a step-ordering bug that breaks the "α=1 reduces to Muon" claim. Our implementation in `optimizers/sotr.py` uses the **corrected Muon-compatible ordering** documented in [PROTOCOL.md §7](../PROTOCOL.md) and the §15 amendment. See the "Design correction" section below.
+
 ## Motivation
 
 Muon's full orthonormalization is powerful but rigid:
@@ -130,3 +132,58 @@ User's stated baseline preference: **AdamW + Lion + Muon (Keller Jordan repo) + 
 - Distributed run on 8 GPUs via FSDP/DDP if feasible (block-wise NS on local shards)
 
 **Success criteria:** for some α ∈ (0,1), SOTR (a) matches Muon's conditioning benefits, (b) is more stable / faster than AdamW, (c) needs less tuning than Muon.
+
+---
+
+## Design correction (2026-05-02): Muon-compatible step ordering
+
+The PDF's draft pseudocode lists the SOTR step as:
+
+```
+G = grad(W)
+O = orthogonalize(G)              # NS on raw G
+U = α·O + (1-α) · G / ||G||_F     # blend
+if ||U||_F > Δ: U *= Δ / ||U||_F  # trust region
+m ← β·m + (1-β)·U                 # momentum
+W ← W - lr·m
+```
+
+**The bug:** at `α=1, Δ=∞, q=5` this produces `m ← β·m + (1-β)·NS(grad)`, then `W -= lr·m`. So the parameter delta is `lr · momentum(NS(grad))`.
+
+**Muon's actual update** (from `external/Muon/muon.py`'s `muon_update`) is:
+
+```
+m ← lerp(m, grad, 1-β)                  # buffer update
+M = lerp(grad, m, β) if nesterov else m # Nesterov mix
+O = zeropower_via_newtonschulz5(M, q)   # NS the mix
+O *= max(1, m_dim/n_dim)**0.5           # per-shape RMS scaling
+W -= lr · O
+```
+
+So Muon's parameter delta is `lr · NS(Nesterov(grad, momentum)) · √(m/n)`. The two are not equivalent — they apply NS at different points in the pipeline (before vs after momentum).
+
+Since "strictly contains Muon at α=1" is the central rhetorical claim of SOTR, we adopt the **Muon-compatible ordering** in our implementation:
+
+```
+1. m.lerp_(grad, 1-β)                              # update momentum
+2. M = grad.lerp(m, β) if nesterov else m          # Nesterov-mixed value
+3. O = zeropower_via_newtonschulz5(M, steps=q)     # NS the mixed value
+4. U = α·O + (1-α) · M / (||M||_F + ε)             # SOTR α-blend (against M, not raw G)
+5. if ||U||_F > Δ: U *= Δ / ||U||_F                 # SOTR Frobenius cap
+6. U *= max(1, m_dim/n_dim)**0.5                    # match Muon's per-shape RMS scale
+7. W -= lr·U                                         # weight update; decoupled WD applied separately
+```
+
+At `α=1, Δ=∞, q=5`: line 4 collapses to `U = O`; line 5 is a no-op; lines 1–3, 6–7 are byte-equivalent to Muon's `muon_update`. PROTOCOL §7 sanity check #1 verifies this.
+
+**The α-blend interpolates between two well-defined optimizers:**
+
+- `α = 1`: `U = NS(M)` → Muon (with the per-shape scaling)
+- `α = 0`: `U = M / ||M||_F` → Frobenius-normalized (Nesterov-)momentum SGD with per-shape scaling. A clean limit, similar in spirit to AuON's "unit-norm momentum" but with Nesterov instead of plain momentum and Frobenius normalization instead of cosh scaling.
+
+**Why blend with `M` rather than raw `G`?** Two reasons:
+
+1. **Continuity at α=0.** Blending with `G` would make the momentum buffer unused at α=0 (the buffer-update happens but its value is never read), creating a discontinuity in the optimizer's behavior as α→0. Blending with `M` keeps the momentum machinery active across all α.
+2. **Geometric interpretation.** With `U = α·NS(M) + (1-α)·M/||M||_F`, the blend is between two normalizations of the *same* tensor `M` — its orthogonalized form and its Frobenius-normalized form. This is a clean geometric soft-projection.
+
+This correction has no effect on PROTOCOL §2 hypotheses or §11 success criteria — it's an internal implementation detail. PROTOCOL.md §15 records the amendment for the paper trail.

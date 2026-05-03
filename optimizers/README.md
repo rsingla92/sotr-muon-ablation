@@ -1,39 +1,48 @@
 # optimizers/
 
-Optimizer implementations. Each optimizer is a single file. Public API exported from `__init__.py`.
+Optimizer implementations. **Almost everything here is empty by design** — see `docs/ARCHITECTURE.md` for the rationale. The repo's policy is to import from canonical references rather than reimplement.
 
-## Files (planned, written in order)
+## Files
 
-| File | Purpose |
-|---|---|
-| `_newton_schulz.py` | Shared NS polynomial routine. Used by SOTR and MuonLike. |
-| `_utils.py` | Frobenius norm helper, trust-region clip, parameter-group filter. |
-| `lion.py` | Lion optimizer, vendored from `external/lion-pytorch`. |
-| `muon_like.py` | Sanity baseline = SOTR with α=1. Same NS as SOTR. |
-| `sotr.py` | SOTR (Soft-Orthogonal Trust Region). The flagship. |
+| File | Status | Notes |
+|---|---|---|
+| `__init__.py` | written | Public API: `from optimizers import SOTR, Lion`. Lion is re-exported from `lion_pytorch`. |
+| `sotr.py` | **the one novel file** | SOTR optimizer. ~80–100 lines including docstring. |
 
-## Conventions
+## What we deliberately do *not* have
 
-- Public class per file: `class Lion(Optimizer)`, `class SOTR(Optimizer)`, etc.
-- `step(self, closure=None)` returns `loss | None`, decorated `@torch.no_grad()`.
-- Hyperparameters as `__init__` kwargs with sensible defaults documented in docstring.
-- Per-parameter group state lives on the optimizer itself; per-step scratch is local.
-- All vendored or adapted code carries the header from `CONTRIBUTING.md` §"Comments".
+| Not here | Why | Use instead |
+|---|---|---|
+| `_newton_schulz.py` | Muon's `zeropower_via_newtonschulz5` is canonical, tuned, validated | `from muon import zeropower_via_newtonschulz5` |
+| `lion.py` | lucidrains' Lion is the de-facto reference | `from lion_pytorch import Lion` (pip-installed from `external/lion-pytorch`) |
+| `muon.py` / `muon_like.py` | Muon equals `SOTR(α=1, Δ=∞, q=5)` by construction | `from muon import Muon, MuonWithAuxAdam` for baselines; `SOTR(...)` with those args for the equivalence sanity test |
+| `_utils.py` | Frobenius norm is `tensor.norm()`; trust-region clip is 4 inline lines | inline in `sotr.py` |
+| `adamw.py` | `torch.optim.AdamW` is the standard | `from torch.optim import AdamW` |
+
+## SOTR step ordering
+
+`sotr.py` implements the **Muon-compatible ordering** — see PROTOCOL.md §7 and the §15 amendment for why. Summary:
+
+1. update momentum buffer with grad
+2. form Nesterov-mixed value `M`
+3. NS the mixed value: `O = zeropower_via_newtonschulz5(M, steps=q)`
+4. α-blend: `U = α·O + (1-α)·M / (||M||_F + ε)`
+5. Frobenius cap: `if ||U||_F > Δ: U *= Δ / ||U||_F`
+6. per-shape RMS scale: `U *= max(1, m/n)**0.5` (matching Muon)
+7. apply update: `p -= lr · U`; weight decay applied separately (decoupled, AdamW-style)
+
+At `α=1, Δ=∞, q=5` this is byte-equivalent to `external/Muon`'s `muon_update`. Sanity test #1 in `tests/sanity/test_sotr_limits.py` verifies this.
 
 ## Public API
 
 ```python
-# optimizers/__init__.py exposes:
-from optimizers import SOTR, Lion, MuonLike
+from optimizers import SOTR
+# Lion is also re-exported for convenience:
+from optimizers import Lion           # equivalent to: from lion_pytorch import Lion
 ```
 
-We do **not** re-export Muon from `external/Muon`. Use it directly: `from muon import MuonWithAuxAdam` after `pip install -e external/Muon`. This keeps our `optimizers/` clearly "ours."
-
-## What goes in `_utils.py` vs inlined
-
-- Used by ≥2 files → factor into `_utils.py`.
-- Used in 1 file → inline. We don't pre-factor for hypothetical reuse.
+We do *not* re-export Muon. Use it directly: `from muon import Muon, MuonWithAuxAdam`. This keeps the `optimizers` package clearly "ours" and makes the lineage of every baseline explicit at the import site.
 
 ## Sanity gate
 
-Every optimizer that goes into a primary comparison has a corresponding sanity test in `tests/sanity/`. PROTOCOL §7 lists the required checks.
+Every optimizer that goes into a primary comparison has a corresponding sanity test in `tests/sanity/`. PROTOCOL §7 lists the eight required checks; `tests/README.md` maps each to its test file. The meta-test `test_sanity_coverage.py` fails if the §7 list and the tests drift apart.

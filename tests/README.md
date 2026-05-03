@@ -15,14 +15,16 @@ See `CONTRIBUTING.md` §"Testing" for the philosophy. This file documents the la
 
 | Test file | PROTOCOL §7 check |
 |---|---|
-| `test_sotr_limits.py` | #1 SOTR(α=1, Δ=∞, q=5) ≡ Muon; #2 SOTR(α=0, q=0) ≡ normalized G; #3 SOTR(α=0, q=2) ≠ Muon |
-| `test_lion_match.py` | #4 Our Lion impl matches Chen 2023 reference |
-| `test_muon_match.py` | #5 Our integration of `external/Muon` agrees with running it directly |
-| `test_trust_region.py` | #6 Trust region triggers correctly at small Δ |
-| `test_determinism.py` | #7 Same seed → same loss curve (within tolerance) |
-| `test_param_groups.py` | #8 Muon/SOTR apply only to `transformer.h.*` 2D weights |
+| `test_sotr_limits.py` | #1 SOTR(α=1, Δ=∞, q=5) ≡ Muon (byte-equivalent on synthetic); #2 SOTR(α=0, q=0) ≡ Frobenius-normalized momentum with per-shape RMS scale; #3 SOTR(α=1, q=2) ≠ SOTR(α=1, q=5) — partial-NS knob is wired |
+| `test_lion_match.py` | #4 `lion_pytorch.Lion` (imported) reproduces a frozen 100-step trajectory in `tests/fixtures/lion_reference.pt` (catches upstream drift) |
+| `test_muon_match.py` | #5 `muon.Muon` (imported from external/Muon) reproduces a frozen 100-step trajectory in `tests/fixtures/muon_reference.pt` |
+| `test_trust_region.py` | #6 SOTR(α=1, Δ=0.01, q=5) hits the Frobenius cap on >50% of steps when typical update is O(1) |
+| `test_determinism.py` | #7 Same seed → same loss curve (CPU bit-identical; GPU within 1e-4) |
+| `test_param_groups.py` | #8 SOTR applied only to 2D `transformer.h.*` parameters; embed/head/biases/LayerNorm get AdamW |
 
-The mapping is verified in `test_sanity_coverage.py` — that test fails if any §7 item lacks a corresponding test.
+The mapping is enforced in `test_sanity_coverage.py` — that test fails if any §7 item lacks a corresponding test file. Prevents drift between PROTOCOL §7 and the test suite.
+
+**Reference trajectories** (`tests/fixtures/*.pt`) are generated once by running `tests/fixtures/generate_references.py` against pinned external/ commits. They are committed so the repo is self-checking. Regenerate only when an external/ submodule is intentionally bumped (record in PROTOCOL.md §15 if so).
 
 ## Conventions
 
