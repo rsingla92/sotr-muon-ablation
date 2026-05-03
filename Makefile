@@ -1,18 +1,23 @@
-# Common commands. All assume the venv is activated, or use `uv run`.
+# Common commands. Assume venv is activated, or `uv run` is used.
+# Run `./scripts/setup.sh` for first-time setup.
 
-.PHONY: help setup submodules deps sanity test lint clean
+.PHONY: help setup submodules deps hooks sanity test test-fast lint format clean
 
 help:
 	@echo "Targets:"
-	@echo "  setup        Initial setup: submodules + deps + dev install"
+	@echo "  setup        First-time setup (submodules + deps + pre-commit)"
 	@echo "  submodules   Init/update git submodules under external/"
 	@echo "  deps         Install dependencies via uv (or pip fallback)"
-	@echo "  sanity       Run Phase 0 sanity tests (limit cases, baseline match)"
+	@echo "  hooks        Install pre-commit hooks"
+	@echo "  sanity       Run PROTOCOL §7 sanity gate (limit cases, baseline match)"
 	@echo "  test         Run full test suite"
-	@echo "  lint         Run ruff"
+	@echo "  test-fast    Run tests minus 'slow' marker"
+	@echo "  lint         Run ruff check + format check"
+	@echo "  format       Run ruff format (writes changes)"
 	@echo "  clean        Remove caches and build artifacts"
 
-setup: submodules deps
+setup:
+	./scripts/setup.sh
 
 submodules:
 	git submodule update --init --recursive
@@ -24,15 +29,25 @@ deps:
 		pip install -e ".[dev]"; \
 	fi
 
+hooks:
+	pre-commit install
+
 sanity:
-	pytest tests/sanity -v
+	pytest tests/sanity -v -m sanity
 
 test:
 	pytest tests/ -v
 
+test-fast:
+	pytest tests/ -v -m "not slow"
+
 lint:
 	ruff check .
 	ruff format --check .
+
+format:
+	ruff check --fix .
+	ruff format .
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +

@@ -4,82 +4,67 @@ Research repository for **Soft-Orthogonal Trust Region (SOTR)** and Muon-family 
 
 ## Status
 
-Phase 0 — repository scaffolding. No experiments run yet.
+Phase 0 — repository scaffolding and methodology lock-in. No experiments run yet, no optimizer code written yet.
 
 ## What this is
 
-Two papers planned:
+Two papers planned (see [`PROTOCOL.md`](PROTOCOL.md) for the contract):
 
-1. **SOTR (Paper 1)** — A new optimizer combining partial Newton-Schulz orthogonalization, a tunable α blend with the normalized gradient, and a per-matrix Frobenius trust region. Strictly contains Muon as the corner case `α=1, Δ=∞, q=5`.
-2. **PSORL (Paper 2)** — Empirical study of Muon-family optimizers in RLHF / DPO / GRPO. Drafted as a protocol amendment after Paper 1 reaches Phase 2.
+1. **SOTR (Paper 1)** — Partial Newton-Schulz orthogonalization, tunable α-blend with normalized gradient, per-matrix Frobenius trust region. Strictly contains Muon as `α=1, Δ=∞, q=5`.
+2. **PSORL (Paper 2)** — Empirical study of Muon-family optimizers in RLHF/DPO/GRPO. Drafted as a protocol amendment after Paper 1 reaches Phase 2.
 
-The methodology is pre-registered in [`PROTOCOL.md`](PROTOCOL.md) — read that first if you're evaluating this work.
+## Read these in order
 
-## Layout
+1. [`PROTOCOL.md`](PROTOCOL.md) — pre-registered methodology. Hypotheses, success criteria, baselines, ablation grid, statistical tests, decision rules. **Read first** if evaluating this work.
+2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — repo layout and design rationale.
+3. [`CONTRIBUTING.md`](CONTRIBUTING.md) — coding and testing standards. Single source of truth for how code is written.
+4. [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) — how to define and run an experiment.
+5. [`docs/CLUSTER.md`](docs/CLUSTER.md) — UBC cluster (SLURM) specifics.
+6. [`knowledge/00_index.md`](knowledge/00_index.md) — literature summaries from the source PDFs.
 
-```
-optimizer_experiments/
-├── PROTOCOL.md            Pre-registered methodology (READ FIRST)
-├── README.md              This file
-├── CLAUDE.md              Skill routing for Claude Code
-├── knowledge/             Literature summaries from source PDFs
-│   ├── 00_index.md
-│   ├── 01_muon_landscape.md
-│   ├── 02_muon_scalability.md
-│   ├── 03_sotr_design.md
-│   ├── 04_proposals_existing.md
-│   ├── 05_open_directions.md
-│   └── 06_lit_update_2026_05.md
-├── external/              Git submodules of reference repos (see external/README.md)
-├── optimizers/            Our optimizer implementations (empty in Phase 0)
-├── experiments/           Configs, training scripts
-├── scripts/               Repo-level utilities (setup, sanity, etc.)
-├── tests/                 Unit + sanity tests (PROTOCOL.md §7)
-│   └── sanity/            Limit-case checks; gating tests for Phase 1
-├── results/               Run outputs (gitignored)
-├── checkpoints/           Model checkpoints (gitignored)
-├── data/                  Tokenized corpora (gitignored)
-├── pyproject.toml
-├── Makefile
-└── *.pdf                  Reference PDFs supplied by the author
-```
+## Quick start
 
-## Setup
-
-Requires Python ≥ 3.10 and CUDA-capable PyTorch ≥ 2.4.
+Requires Python ≥ 3.10 and CUDA-capable PyTorch ≥ 2.10.
 
 ```bash
 git clone --recurse-submodules git@github.com:rsingla92/optimizer_experiments.git
 cd optimizer_experiments
-make setup
+./scripts/setup.sh
 ```
 
-Or, if you cloned without submodules:
+This initializes submodules, creates a Python environment, installs dev deps, and registers pre-commit hooks. After it finishes:
 
 ```bash
-make submodules
-make deps
+make sanity     # PROTOCOL §7 gate (once optimizer code lands)
+make test       # full test suite
+make lint       # ruff check
 ```
 
-`make setup` initializes submodules under `external/` and installs Python deps via [uv](https://docs.astral.sh/uv/) (preferred) or pip fallback.
+## Layout
 
-## Running sanity checks
-
-Once Phase 0 code lands, the sanity gate (PROTOCOL.md §7) is:
-
-```bash
-make sanity
+```
+PROTOCOL.md              Pre-registered methodology
+README.md                This file
+CONTRIBUTING.md          Coding/testing standards
+docs/                    Architecture, cluster, experiment guides
+knowledge/               Literature summaries from source PDFs
+external/                Pinned reference repos (read-only)
+optimizers/              Our optimizer implementations
+experiments/             Configs and training entry points
+scripts/                 Setup + SLURM templates
+tests/                   Sanity (gating) + unit tests
+results/, checkpoints/   Run outputs (gitignored)
 ```
 
-This must pass before any Phase 2 result can be reported.
+Full breakdown: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Reference repositories
+## Hardware
 
-We track upstream reference implementations as git submodules under `external/` so every reported number is reproducible against a known commit. See [`external/README.md`](external/README.md) for the list.
+We target UBC research computing (Sockeye, DRAC). No paid cloud GPUs needed. See [`docs/CLUSTER.md`](docs/CLUSTER.md). The methodology survives any reasonable single-/multi-GPU setup as long as direct A-vs-B comparisons run on identical hardware (PROTOCOL §5).
 
 ## License
 
-MIT. Code released for community reproduction. See `LICENSE` (to be added).
+MIT. See `LICENSE` (added before any external release).
 
 ## Contact
 

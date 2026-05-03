@@ -112,15 +112,17 @@ These are the locked items. Hardware is **recorded per run** but not constrained
 
 **Hardware tier protocol (where each phase runs):**
 
-| Phase | Hardware | Why | Cost estimate |
-|---|---|---|---|
-| **Phase 0 (sanity, dev)** | Any single GPU — UBC cluster A100/L4/H100 OK | Limit-case unit tests don't need scale | ~free |
-| **Phase 1 (reproduction)** | Single H100 or A100 (UBC or rented). Match a *published modded-nanogpt single-GPU baseline number* (e.g., the Newton-Muon paper's Record #4 on single H100). **Not** the official 8× H100 5-min record. | Reproducing the canonical optimizer-comparison protocol on whatever hardware we have. | ~$5–20 per run if rented |
-| **Phase 2 (ablation, 200 runs)** | 1–2× H100 or A100 with **reduced-scale config** (smaller `n_layer`/`n_embd`, matched token budget) | 200 runs × full-scale would be infeasible; reduced scale preserves directional signal | ~$5/run × 200 = ~$1k |
-| **Phase 3 (mid-scale validation, ~20 runs)** | 4–8× H100 (or whatever multi-GPU we have) at full modded-nanogpt config | Primary claims at full canonical setup; matches Mousse/NorMuon-class papers | ~$100–300 × 20 = ~$2–6k |
-| **Phase 4 (release replication)** | Whatever Phase 3 used | External-replication evidence | ~$50 |
+We target **UBC research computing infrastructure** (Sockeye and/or Compute Canada / DRAC). No paid cloud rentals planned. Cluster specifics, SLURM templates, and quotas in [`docs/CLUSTER.md`](docs/CLUSTER.md).
 
-**Estimated total compute:** ~$3–8k for Paper 1 if we rent. Significantly less if UBC cluster covers Phases 0–2.
+| Phase | Hardware (UBC) | Why |
+|---|---|---|
+| **Phase 0 (sanity, dev)** | Any single GPU — Sockeye A100/V100, DRAC A100, or local | Limit-case unit tests don't need scale |
+| **Phase 1 (reproduction)** | Single A100 or H100 on Sockeye / DRAC. Match a *published modded-nanogpt single-GPU baseline number* (e.g., Newton-Muon's Record #4 on single H100). | Reproducing the canonical optimizer-comparison protocol on the hardware we'll actually use |
+| **Phase 2 (ablation, 200 runs)** | 1× A100 per job, submitted as a SLURM job array (`scripts/slurm/array_ablation.sh`). Reduced-scale model config so each run completes in ~1 hour. | 200 runs × full-scale infeasible; reduced scale preserves directional signal. Job arrays are how SLURM expects this kind of sweep. |
+| **Phase 3 (mid-scale validation, ~20 runs)** | 4–8× A100 or H100 single-node (Sockeye GPU partition or DRAC large GPU). | Primary claims at full canonical setup; matches Mousse / NorMuon class. |
+| **Phase 4 (release replication)** | Same partition as Phase 3, single confirmation run after open release. | External-replication evidence. |
+
+**Estimated compute:** zero dollars (UBC allocation-based). Bound is GPU-hour quota and queue time, not budget. Full Paper 1 scope (~250 runs) fits comfortably in a typical postdoc allocation.
 
 **Hardware constraints for *valid* claims:**
 - Any direct A-vs-B comparison (SOTR vs Muon, etc.) runs on **identical hardware** — same GPU type, same count, same node configuration, same data sharding.
@@ -316,6 +318,15 @@ Pre-registration for Paper 2 (Muon-family in RLHF/DPO/GRPO) will be drafted as a
 ---
 
 ## Amendments
+
+### Amendment 2026-05-02 (UBC cluster) — Switch to UBC compute, drop dollar estimates
+*(Pre-Phase-0; no experimental data yet → free amendment.)*
+
+**Change:** §5 hardware tier table updated to assume UBC research computing (Sockeye / DRAC) instead of paid PrimeIntellect rentals. Cost estimates removed (UBC is allocation-based, not dollar-based). SLURM-specific guidance (`docs/CLUSTER.md`) referenced for cluster account, partitions, and job templates.
+
+**Rationale:** User confirmed UBC cluster availability; cloud rentals not needed for the planned scope. Allocation-based bound is tighter on queue time and GPU-hours than on dollars, and the SLURM array pattern (one config per array index) is the cleanest fit for the Phase 2 200-run ablation grid.
+
+**No effect on hypotheses or success criteria.** Hardware tier is "what we run on," not "what we measure" — primary claims are still hardware-matched A-vs-B, not absolute wallclock targets.
 
 ### Amendment 2026-05-02 (revised) — Lock the *protocol*, not the hardware
 *(Pre-Phase-0; no experimental data yet → free amendment.)*
