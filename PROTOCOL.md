@@ -12,10 +12,12 @@
 
 Two papers are planned (see `knowledge/05_open_directions.md` and `knowledge/06_lit_update_2026_05.md`):
 
-- **Paper 1 — SOTR** (Soft-Orthogonal Trust Region): a soft-orthogonalization optimizer with a tunable α blend between Newton-Schulz polar and normalized gradient, plus a per-matrix Frobenius trust region.
+- **Paper 1 — SOTR** (Soft-Orthogonal Trust Region): a study of three soft-orthogonalization mechanisms applied per-matrix to weight updates, with one cleanly novel piece (a per-matrix Frobenius trust region) and two pre-existing knobs (Newton–Schulz iteration count `q`, and an additive-linear singular-value blend parameterized by `α`). Paper 1 maps the interaction of `(α, Δ, q)` and identifies which combinations outperform Muon under hardware-matched conditions on the modded-nanogpt FineWeb harness.
 - **Paper 2 — PSORL** (Muon-family optimizers in RLHF/DPO/GRPO): an empirical study of orthogonalized optimizers in alignment training.
 
 This protocol covers Paper 1 in full. Paper 2 will get its own protocol amendment once Paper 1 reaches Phase 2.
+
+**Honest scope note.** The α-blend is *not* a new family of singular-value rescalings — it's a particular parameterization within a family already explored by PolarGrad (Lau 2025) and "Delving into Muon and Beyond" (2602.04669); see `knowledge/07_spectral_interpretation.md` for the derivation. The cleanly novel piece is the per-matrix Frobenius trust region. The empirical contribution is the *interaction map* of all three knobs, which has not been published. This is reflected in the H1–H4 hypotheses below.
 
 ---
 
@@ -189,8 +191,9 @@ At `α=1, Δ=∞`, line 4 collapses to `U = O` and line 5 is a no-op, so steps 1
 6. **Trust region triggers:** with `SOTR(α=1, Δ=0.01, q=5)`, the per-matrix Frobenius cap fires on >50% of steps for a problem where typical update Frobenius norm is O(1). Verifies the cap path is reachable.
 7. **Determinism:** two runs with same seed and code produce bit-identical loss curves on CPU; on GPU, within 1e-4 (tolerance for non-deterministic CUDA kernels in NS).
 8. **Param-group split correctness:** SOTR is applied only to 2D parameters in `transformer.h.*`; embeddings/head/biases/LayerNorm receive AdamW. Verified by inspecting `param_groups` after construction.
+9. **Spectral identity (numerical):** for a synthetic 2D `M` with controlled SVD `M = U·Σ·Vᵀ`, run a SOTR step with `q = 5`, `Δ = ∞`, and various `α ∈ {0.25, 0.5, 0.75}`. Verify that the singular values of `U_blend` (post-blend, pre-cap, pre-scale) match the closed form `σ'_i = α + (1−α)·σ_i / ||M||_F` within `1e-3` (loose because `f_5(σ) ≈ 1` not exactly 1). For `q = 0`, verify `σ'_i = σ_i / ||M||_F` exactly within `1e-6`. Catches implementation bugs that limit-case tests #1, #2 can miss (sign errors, wrong normalization, NS applied to wrong tensor). Derivation in `knowledge/07_spectral_interpretation.md`.
 
-**Coverage meta-check:** `tests/sanity/test_sanity_coverage.py` fails if any of #1–#8 lacks a corresponding test file. Prevents drift between this list and the test suite.
+**Coverage meta-check:** `tests/sanity/test_sanity_coverage.py` fails if any of #1–#9 lacks a corresponding test file. Prevents drift between this list and the test suite.
 
 Failure of any sanity check halts progress until fixed. No exceptions.
 
@@ -225,19 +228,37 @@ Run at small scale only initially; promote winners to mid-scale.
 | Config | α | Δ | q (NS iters) | Reduces to / tests |
 |---|---|---|---|---|
 | **A. SOTR full** | 0.5 | 1.0 | 2 | The proposed method |
-| **B. Drop α-blend** | 1.0 | 1.0 | 2 | Muon + Fro cap (no soft blend) |
-| **C. Drop Δ cap** | 0.5 | ∞ | 2 | α-blend only (no trust region) |
+| **B. Drop α-blend** | 1.0 | 1.0 | 2 | Partial-NS Muon + Fro cap (no soft blend) |
+| **C. Drop Δ cap** | 0.5 | ∞ | 2 | Partial-NS + α-blend, no trust region |
 | **D. Drop both** | 1.0 | ∞ | 2 | "MuonLike q=2" — partial NS only |
 | **E. Drop NS** | 0.5 | 1.0 | 0 | Renorm-SGD with Fro cap + blend (skips orth) |
-| **F. Full NS** | 0.5 | 1.0 | 5 | Does *partial* NS matter? |
+| **F. Full NS + SOTR** | 0.5 | 1.0 | 5 | Does *partial* NS matter? |
 | **G. α schedule** | 0→0.5 over 10k steps | 1.0 | 2 | Annealing matters? |
 | **H. Δ scheduled** | 0.5 | start∞ → 1.0 over 10k | 2 | Late-onset trust region? |
+| **I. Muon + Fro cap only** | 1.0 | 1.0 | 5 | Isolates the Frobenius trust region as the *sole* novel mechanism. Cleanest test of "is Δ alone enough?" |
+| **J. Partial-NS Muon** | 1.0 | ∞ | 2 | Isolates partial NS's effect with no blend and no cap. Decouples q from the other knobs. |
 
-Each cell: 5 seeds × 1 LR sweep (5 LRs) = 25 runs. Total ablation: 8 × 25 = 200 small-scale runs.
+Each cell: 5 seeds × 1 LR sweep (5 LRs) = 25 runs. Total ablation: 10 × 25 = 250 small-scale runs.
 
 Each cell uses the *same* per-config LR sweep — no shared LR across cells unless justified.
 
-**Pre-registered prediction:** A > {B, C, D} significantly; F ≈ A or A slightly better (partial NS suffices); E < A (NS contributes); G ≥ A (annealing helps).
+**Decomposition:** by including cells D, I, J alongside the full SOTR (A) and Muon baseline (q=5, no SOTR), we can attribute SOTR's effect to its components:
+
+- D = Muon + partial NS only
+- I = Muon + Frobenius cap only (the genuinely novel piece)
+- J = same as D — Muon with partial NS, sanity duplicate
+- B = D + Frobenius cap
+- C = D + α-blend
+- A = D + Frobenius cap + α-blend
+
+Comparing (Muon, D, I, J, B, C, A) tells us: does partial NS help (D vs Muon)? Does Frobenius cap help on top of Muon (I vs Muon)? On top of partial-NS Muon (B vs D)? Does α-blend help on top of partial-NS Muon (C vs D)? On top of partial-NS Muon + Frobenius cap (A vs B)?
+
+**Pre-registered predictions:** A > B (α-blend contributes some); A > C (trust region contributes some); A > D (combined > partial-NS alone); E < D (NS contributes); F ≈ A or A slightly better (partial NS suffices over full NS); I > Muon (trust region helps even without SOTR's other knobs); J ≈ D (sanity); G ≥ A (annealing helps).
+
+**Decision rules tied to ablation outcomes:**
+- If A ≈ I (Frobenius cap alone explains the win): paper is "we show Frobenius trust region per matrix is sufficient; α and partial-NS knobs add nothing." Still publishable, leaner contribution.
+- If I ≈ Muon (Frobenius cap alone doesn't help): SOTR's contribution rests on the *combination*, paper claim narrows to "the combination of partial NS + α-blend + Frobenius cap is necessary."
+- If A ≈ Muon (no combination beats Muon): negative result, write up honestly. PROTOCOL §11 kill switch.
 
 ---
 
@@ -336,6 +357,29 @@ Pre-registration for Paper 2 (Muon-family in RLHF/DPO/GRPO) will be drafted as a
 ---
 
 ## Amendments
+
+### Amendment 2026-05-02 (spectral interpretation) — Reframe contribution; expand ablation; add sanity #9
+*(Pre-Phase-0; no experimental data yet → free amendment.)*
+
+**Trigger.** Working through the SVD algebra of SOTR's α-blend reveals that the blend `α·O + (1−α)·M/||M||_F` reduces to a singular-value rescaling `σ_i ↦ α + (1−α)·σ_i/||M||_F` (full derivation in `knowledge/07_spectral_interpretation.md`). This places SOTR's α-knob in the same family as PolarGrad's `σ^v` and 2602.04669's `σ^p`. The α-blend is a parameterization choice within an existing family, not a new family.
+
+**Changes:**
+
+1. **§1 Overview reframed.** Paper 1's contribution is no longer "introduces a tunable soft-orthogonalization with trust region." It is now: "a study of three soft-orthogonalization mechanisms (per-matrix Frobenius trust region [novel], partial NS [pre-existing knob], additive-linear singular-value blend [parameterization within known family]) and their interaction." Honest scope note added.
+
+2. **§7 sanity check #9 added.** Numerically verify the spectral identity: for synthetic `M`, check that `U_blend`'s singular values match the closed form `α + (1−α)·σ_i / ||M||_F` (q=5 case, tol 1e-3) and `σ_i / ||M||_F` (q=0 case, tol 1e-6). Catches sign/normalization/wrong-tensor bugs that limit-case tests #1, #2 can miss.
+
+3. **§9 ablation grid expanded.** Two new cells:
+   - **Cell I:** `α=1, Δ=1.0, q=5` — Muon + Frobenius cap only. Isolates Δ as sole novel mechanism.
+   - **Cell J:** `α=1, Δ=∞, q=2` — Muon with partial NS. Isolates q's effect alone.
+   
+   Total ablation runs: 10 cells × 5 seeds × 5 LRs = 250 (was 200). Compute increase ~25%, comfortably within UBC allocation. New decision rules (§9) tied to specific ablation outcomes.
+
+4. **Empirical focus.** The spectral derivation shows the α-blend is most informative at small `q` (partial NS) or for non-uniform spectra. We will report results stratified by these conditions in the paper.
+
+**No effect on hypotheses H1–H4 or success criteria.** H1 was always "for some `(α*, Δ*, q*)`, SOTR beats Muon" — still well-defined. The reframing is rhetorical (how we describe the contribution) rather than substantive (what we measure).
+
+**No effect on PROTOCOL §13 ("what we don't do").** All discipline rules unchanged.
 
 ### Amendment 2026-05-02 (design fix) — Lock SOTR step ordering and NS precision
 *(Pre-Phase-0; no experimental data yet → free amendment.)*

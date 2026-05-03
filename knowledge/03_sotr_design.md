@@ -187,3 +187,38 @@ At `α=1, Δ=∞, q=5`: line 4 collapses to `U = O`; line 5 is a no-op; lines 1�
 2. **Geometric interpretation.** With `U = α·NS(M) + (1-α)·M/||M||_F`, the blend is between two normalizations of the *same* tensor `M` — its orthogonalized form and its Frobenius-normalized form. This is a clean geometric soft-projection.
 
 This correction has no effect on PROTOCOL §2 hypotheses or §11 success criteria — it's an internal implementation detail. PROTOCOL.md §15 records the amendment for the paper trail.
+
+---
+
+## Family membership and reframed contribution (2026-05-02)
+
+Working through the spectral algebra (full derivation in [`07_spectral_interpretation.md`](07_spectral_interpretation.md)) reveals that the α-blend is **not** a new family of singular-value rescalings — it's a particular parameterization within a family already explored by PolarGrad (Lau 2025) and "Delving into Muon and Beyond" (2602.04669). Specifically, the blend `α·O + (1−α)·M/||M||_F` is equivalent to mapping each singular value via:
+
+```
+σ_i  ↦  σ'_i  =  α · f_q(σ_i)  +  (1 − α) · σ_i / ||M||_F
+```
+
+where `f_q` is the Newton-Schulz polynomial. PolarGrad's `σ^v` family is a **multiplicative-power** rescaling; SOTR's blend is **additive-linear**. Both interpolate Muon (`σ' = 1`) and a normalized form of M, but along different curves.
+
+**Implication for the paper's contribution claim.** SOTR has three knobs: `(α, Δ, q)`. Decomposing them by what's actually novel:
+
+1. **Per-matrix Frobenius trust region (Δ).** Genuinely new. No prior work caps the post-orthogonalization update's Frobenius norm per-matrix.
+2. **α-blend.** A parameterization choice within an existing family. Defensible (cheap, no-SVD, contains Muon, composable with Δ) but not new geometrically.
+3. **Partial NS (q < 5).** Already a known knob in Muon's API; not a contribution per se but interacts with α non-trivially.
+
+**Reframed paper claim** (replacing the original "SOTR introduces a tunable soft-orthogonal optimizer with trust region"):
+
+> SOTR introduces a per-matrix Frobenius trust region on orthogonalized weight updates, and studies its interaction with two pre-existing knobs — Newton–Schulz iteration count and additive-linear singular-value blending. The trust region is novel; the additive-linear blend is a member of a family known from prior work; and the empirical contribution is mapping where these three mechanisms compose, where they're redundant, and where they trade off.
+
+This framing is more defensible than "we propose a new optimizer family" — it's an honest investigation rather than a single-point claim, which survives review even if the α-blend turns out to add little over Muon + Frobenius cap.
+
+**Where the α-blend is empirically interesting.** The spectral identity shows that for *uniform* singular spectra, intermediate α just scales Muon's update by a constant — i.e., it's a learning-rate change in disguise. The α-blend genuinely reshapes the update only when the singular spectrum is *non-uniform* (heavy-tailed) or when `q` is small (partial NS makes `f_q` non-trivial). This focuses the experimental design: sweep α primarily at q=1 and q=2, and pay attention to layers known to have heavy-tailed gradient spectra.
+
+**Consequence for PROTOCOL §9.** Two new ablation cells:
+
+- **Cell I:** `α=1, Δ=1.0, q=5` — Muon + Frobenius cap only. Isolates Δ as the sole novel mechanism.
+- **Cell J:** `α=1, Δ=∞, q=2` — Muon with partial NS. Isolates partial-NS's effect with no blending and no cap.
+
+Together with the existing cells A–H, these let us decompose the contribution of each knob.
+
+**Consequence for PROTOCOL §7.** Sanity check #9 added: numerically verify the spectral identity. Construct an `M` with known SVD, run a SOTR step, and check that `U_blend`'s singular values match the closed form. Catches implementation bugs the limit-case tests would miss.

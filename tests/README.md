@@ -21,6 +21,7 @@ See `CONTRIBUTING.md` §"Testing" for the philosophy. This file documents the la
 | `test_trust_region.py` | #6 SOTR(α=1, Δ=0.01, q=5) hits the Frobenius cap on >50% of steps when typical update is O(1) |
 | `test_determinism.py` | #7 Same seed → same loss curve (CPU bit-identical; GPU within 1e-4) |
 | `test_param_groups.py` | #8 SOTR applied only to 2D `transformer.h.*` parameters; embed/head/biases/LayerNorm get AdamW |
+| `test_spectral_identity.py` | #9 Numerical verification of the SVD-space identity `σ_i ↦ α + (1−α)·σ_i/||M||_F` (derivation in `knowledge/07_spectral_interpretation.md`); catches bugs that limit-case tests miss |
 
 The mapping is enforced in `test_sanity_coverage.py` — that test fails if any §7 item lacks a corresponding test file. Prevents drift between PROTOCOL §7 and the test suite.
 
