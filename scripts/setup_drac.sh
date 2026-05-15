@@ -98,6 +98,20 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4b. Triton (needed by torch.compile in train_gpt2.py)
+# ---------------------------------------------------------------------------
+# DRAC's torch wheel doesn't bundle Triton, but `train_gpt2.py` at dd2224b
+# calls `torch.compile(model)` which requires Triton as the Inductor backend.
+# DRAC ships a matching wheel in their wheelhouse (triton 3.6.0+computecanada).
+echo ""
+echo "==> Installing Triton (DRAC wheelhouse)..."
+if python -c "import triton" 2>/dev/null; then
+    echo "    triton already installed at $(python -c 'import triton; print(triton.__version__)')"
+else
+    pip install --no-index triton || pip install triton
+fi
+
+# ---------------------------------------------------------------------------
 # 5. Our package + dev deps
 # ---------------------------------------------------------------------------
 echo ""
@@ -257,6 +271,11 @@ try:
     print("  huggingface-hub: OK")
 except ImportError as e:
     print(f"  huggingface-hub: FAIL — {e}")
+try:
+    import triton  # noqa: F401
+    print(f"  triton: OK ({triton.__version__})")
+except ImportError as e:
+    print(f"  triton: FAIL — {e}  (torch.compile in train_gpt2.py will not work)")
 PYEOF
 
 # ---------------------------------------------------------------------------
