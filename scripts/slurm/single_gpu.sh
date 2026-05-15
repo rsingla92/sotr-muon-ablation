@@ -11,7 +11,7 @@
 
 #SBATCH --job-name=optexp
 #SBATCH --account=rrg-timsbc
-#SBATCH --time=04:00:00
+#SBATCH --time=02:00:00
 #SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
