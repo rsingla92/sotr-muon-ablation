@@ -137,6 +137,17 @@ echo "==> Installing modded-nanogpt's runtime requirements (skipping torch)..."
 grep -v '^torch==' external/modded-nanogpt/requirements.txt | pip install -r /dev/stdin
 
 # ---------------------------------------------------------------------------
+# 7b. Generate Phase 2 ablation configs (250 files)
+# ---------------------------------------------------------------------------
+# experiments/configs/phase2/*/seed*_lr*.py are gitignored (they're cheap to
+# regenerate and would clutter `git diff`). The SLURM array_ablation.sh
+# imports them by dotted module path, so they must exist on disk before
+# Phase 2 jobs can run. Regenerable any time via this same command.
+echo ""
+echo "==> Generating Phase 2 ablation configs (250 files)..."
+python -m experiments.scripts.gen_phase2_configs
+
+# ---------------------------------------------------------------------------
 # 8. Pre-commit hooks — SKIPPED on DRAC
 # ---------------------------------------------------------------------------
 # Pre-commit's hook cache lives in $HOME/.cache/pre-commit by default, which
