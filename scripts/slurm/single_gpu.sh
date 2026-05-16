@@ -30,4 +30,10 @@ if [[ -z "${1:-}" ]]; then
     exit 1
 fi
 
-python experiments/train.py --config "$1"
+# experiments/train.py is vendored from modded-nanogpt's train_gpt2.py and
+# calls dist.init_process_group() at top-level, so it must be launched via
+# torchrun (which sets RANK/WORLD_SIZE/MASTER_ADDR/MASTER_PORT). Single-GPU
+# works fine here: train_gpt2.py asserts 8 % world_size == 0 and sets
+# grad_accum_steps = 8 // world_size, so nproc_per_node=1 ⇒ grad_accum_steps=8.
+export PYTORCH_ALLOC_CONF="expandable_segments:True"
+torchrun --standalone --nproc_per_node=1 experiments/train.py --config "$1"
