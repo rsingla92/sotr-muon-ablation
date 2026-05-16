@@ -29,7 +29,7 @@ LOG_DIR="results/slurm"
 # 1. State counts
 # ---------------------------------------------------------------------------
 echo ""
-echo "=== Job $JOB state counts ==="
+echo "=== $(date '+%Y-%m-%d %H:%M:%S %Z') — Job $JOB state counts ==="
 sacct -j "$JOB" -X --noheader --format=State%-12 | awk '{$1=$1; print}' | sort | uniq -c
 
 # Pull counts by state for ETA math.
