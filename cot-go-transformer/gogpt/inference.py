@@ -17,7 +17,6 @@ import torch.nn.functional as F
 from .model import GoGPT
 from .tokenizer import (
     BOS_TOKEN,
-    EOS_TOKEN,
     MOVE_TOKEN_IDS,
     NUM_POINTS,
     PASS_TOKEN,

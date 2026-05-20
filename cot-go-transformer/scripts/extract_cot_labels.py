@@ -32,8 +32,6 @@ import argparse
 import json
 import logging
 import multiprocessing as mp
-import os
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator

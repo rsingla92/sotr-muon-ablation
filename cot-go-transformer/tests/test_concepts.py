@@ -11,7 +11,6 @@ from gogpt.concepts import (
     captures_if_played,
     contested_points,
     count_eyes,
-    diagonals,
     group_alive_by_ownership,
     group_at,
     group_dead_by_ownership,
@@ -60,7 +59,8 @@ def test_edges_and_corners():
 # ---- Groups ----
 
 def test_single_stone_group():
-    b = _b(); b[4, 4] = BLACK
+    b = _b()
+    b[4, 4] = BLACK
     g = group_at(b, 4, 4)
     assert g is not None
     assert g.color == BLACK
@@ -81,7 +81,8 @@ def test_chain_group_merges():
 
 
 def test_corner_liberty_count():
-    b = _b(); b[0, 0] = BLACK
+    b = _b()
+    b[0, 0] = BLACK
     g = group_at(b, 0, 0)
     assert g is not None
     assert g.num_liberties == 2
@@ -169,7 +170,8 @@ def test_captures_if_played_single_stone():
 
 
 def test_captures_if_played_none():
-    b = _b(); b[4, 4] = WHITE
+    b = _b()
+    b[4, 4] = WHITE
     caps = captures_if_played(b, BLACK, (3, 3))
     assert caps == []
 

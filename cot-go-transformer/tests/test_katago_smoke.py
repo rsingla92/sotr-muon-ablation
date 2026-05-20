@@ -7,7 +7,6 @@ well-formed results with no subprocess leaks. This test runs that check.
 
 from __future__ import annotations
 
-import os
 import subprocess
 
 import pytest

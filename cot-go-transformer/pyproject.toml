@@ -34,6 +34,13 @@ include = ["gogpt*"]
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint.per-file-ignores]
+# Tests use pytest.importorskip("torch") before importing gogpt modules
+# that transitively depend on torch -- that pattern legitimately puts
+# imports after a function call.
+"tests/test_attention_mask.py" = ["E402"]
+"tests/test_smoke_forward.py" = ["E402"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]

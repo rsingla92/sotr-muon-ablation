@@ -33,8 +33,7 @@ the mask shape is supported).
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import torch
@@ -44,7 +43,6 @@ import torch.nn.functional as F
 from .tokenizer import (
     NUM_POINTS,
     NUM_STATE_CATEGORIES,
-    PASS_TOKEN,
     VOCAB_SIZE,
 )
 

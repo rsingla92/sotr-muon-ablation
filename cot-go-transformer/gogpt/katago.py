@@ -26,7 +26,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Queue
 from typing import Any, Iterable
 
 log = logging.getLogger(__name__)

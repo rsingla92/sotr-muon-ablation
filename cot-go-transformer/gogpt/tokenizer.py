@@ -25,7 +25,6 @@ Loss is computed only on trajectory tokens. The tokenizer exposes:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
 
 import numpy as np
 

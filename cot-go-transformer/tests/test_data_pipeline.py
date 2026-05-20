@@ -1,16 +1,14 @@
 """Data pipeline tests: SGF parsing, capture rules, example generation."""
 
 import numpy as np
-import pytest
 
 from gogpt.data import (
     ParsedGame,
-    _build_example,
     iter_examples_from_game,
     parse_sgf,
     play_stone,
 )
-from gogpt.tokenizer import NUM_POINTS, PASS_TOKEN, point_to_token
+from gogpt.tokenizer import NUM_POINTS, point_to_token
 
 
 def test_parse_minimal_sgf():

@@ -10,7 +10,6 @@ from gogpt.tokenizer import (
     BOS_TOKEN,
     EOS_TOKEN,
     NUM_POINTS,
-    PASS_TOKEN,
     SEP_POS_TOKEN,
 )
 

@@ -27,10 +27,8 @@ import argparse
 import json
 import logging
 import multiprocessing as mp
-import os
 import random
 import time
-from dataclasses import asdict
 from pathlib import Path
 
 from gogpt.katago import KataGo, KataGoConfig, default_model_path, find_katago_binary
@@ -43,7 +41,6 @@ MAX_PLIES = 200
 
 def _play_one_game(args: tuple[int, dict]) -> tuple[int, str, list[dict]]:
     game_idx, cfg_dict = args
-    visits = cfg_dict["visits"]
     analysis_visits = cfg_dict["analysis_visits"]
     rng = random.Random(cfg_dict["seed"] + game_idx)
     katago_cfg = KataGoConfig(**cfg_dict["katago"])

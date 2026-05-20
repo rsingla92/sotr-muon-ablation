@@ -29,8 +29,6 @@ deterministic order so the IDs are stable across runs and reproducible.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterator
 
 from .tokenizer import PHASE0_VOCAB_SIZE, VOCAB_SIZE
 
@@ -95,16 +93,26 @@ SL_W_DOM = _assign("SL_W_DOM")     # <= -20
 def score_lead_token(score_lead: float) -> int:
     """KataGo score lead from the side-to-move perspective."""
     s = score_lead
-    if s >= 20: return SL_B_DOM
-    if s >= 10: return SL_B_BIG
-    if s >= 5:  return SL_B_MED
-    if s >= 2:  return SL_B_SMALL
-    if s >= 0.5: return SL_B_TINY
-    if s > -0.5: return SL_EVEN
-    if s > -2:  return SL_W_TINY
-    if s > -5:  return SL_W_SMALL
-    if s > -10: return SL_W_MED
-    if s > -20: return SL_W_BIG
+    if s >= 20:
+        return SL_B_DOM
+    if s >= 10:
+        return SL_B_BIG
+    if s >= 5:
+        return SL_B_MED
+    if s >= 2:
+        return SL_B_SMALL
+    if s >= 0.5:
+        return SL_B_TINY
+    if s > -0.5:
+        return SL_EVEN
+    if s > -2:
+        return SL_W_TINY
+    if s > -5:
+        return SL_W_SMALL
+    if s > -10:
+        return SL_W_MED
+    if s > -20:
+        return SL_W_BIG
     return SL_W_DOM
 
 

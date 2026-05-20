@@ -15,13 +15,11 @@ labels (used in Phase 1) should be flipped to match.
 from __future__ import annotations
 
 import gzip
-import io
-import json
 import logging
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Iterator
 
 import numpy as np
 
@@ -42,10 +40,6 @@ from .tokenizer import (
     NUM_POINTS,
     PASS_TOKEN,
     SEP_POS_TOKEN,
-    STATE_BLACK,
-    STATE_EMPTY,
-    STATE_LAST_MOVE,
-    STATE_WHITE,
     encode_board_states,
     point_to_token,
 )
