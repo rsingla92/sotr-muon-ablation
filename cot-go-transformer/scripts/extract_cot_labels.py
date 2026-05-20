@@ -68,11 +68,17 @@ def _build_example(
     cot_tokens: list[int],
     move_token: int,
     to_move: str,
+    *,
+    cot_supervised: bool = True,
 ) -> CotExample:
     """One (position, think-block + move) training example.
 
     Always-as-black: if to_move=='W' the caller must already have swapped
     the board AND flipped the ownership in the analysis dict.
+
+    ``cot_supervised`` controls whether the tokens INSIDE the
+    [<think>]...[</think>] region are loss-bearing. For the free-CoT (D)
+    ablation this is False -- only the move-token position computes loss.
     """
     state_cats = encode_board_states(board, ko_point=ko, last_move=last_move)
 
@@ -98,10 +104,28 @@ def _build_example(
     loss_mask = np.zeros(T, dtype=np.int8)
     sep_index = 1 + NUM_POINTS
     last_traj_index = sep_index + traj_tokens.shape[0]
-    for i in range(sep_index, last_traj_index + 1):
-        if i + 1 < T:
-            labels[i] = int(tokens[i + 1])
-    loss_mask[sep_index : last_traj_index + 1] = 1
+
+    if cot_supervised:
+        # Standard: every trajectory position (SEP_POS .. last move) predicts
+        # the next token.
+        for i in range(sep_index, last_traj_index + 1):
+            if i + 1 < T:
+                labels[i] = int(tokens[i + 1])
+        loss_mask[sep_index : last_traj_index + 1] = 1
+    else:
+        # Free-CoT: only the position that predicts the MOVE token is
+        # loss-bearing. That position is the [</think>] token, whose
+        # successor is the move token. Sequence layout starting at sep_index:
+        #   sep_index    : SEP_POS
+        #   +1           : THINK_OPEN
+        #   +2 ..+1+N    : N content tokens
+        #   +2+N         : THINK_CLOSE
+        #   +3+N         : move
+        think_close_pos = sep_index + len(cot_tokens) + 2
+        move_pos = think_close_pos + 1
+        if move_pos < T:
+            labels[think_close_pos] = int(tokens[move_pos])
+            loss_mask[think_close_pos] = 1
 
     return CotExample(
         state_categories=state_cats,
@@ -111,9 +135,13 @@ def _build_example(
     )
 
 
-def _examples_for_game(sgf_path: Path, jsonl_path: Path) -> Iterator[CotExample]:
+def _examples_for_game(
+    sgf_path: Path,
+    jsonl_path: Path,
+    *,
+    mode: str,
+) -> Iterator[CotExample]:
     game = parse_sgf(sgf_path.read_text())
-    # Load per-ply analysis; key by ply.
     by_ply: dict[int, dict] = {}
     with jsonl_path.open() as f:
         for line in f:
@@ -123,38 +151,39 @@ def _examples_for_game(sgf_path: Path, jsonl_path: Path) -> Iterator[CotExample]
             except Exception as e:
                 log.warning("bad analysis line in %s: %s", jsonl_path, e)
 
+    cot_supervised = mode != "free"
+
     board = np.zeros((BOARD_SIZE, BOARD_SIZE), dtype=np.int8)
     ko: tuple[int, int] | None = None
     last_move: tuple[int, int] | None = None
     for ply, (color, rc) in enumerate(game.moves):
         analysis = by_ply.get(ply)
         if analysis is None:
-            # No CoT label for this ply -> skip (don't train without CoT).
             board, ko = play_stone(board, _color_to_value(color), rc)
             last_move = rc
             continue
-        # Color-flip to always-as-black perspective if needed.
         flip = color == "W"
         view_board = _swap_colors(board) if flip else board
         cot = extract_think_block(
             view_board,
             analysis,
             move_number=ply,
+            played_move_rc=rc,
             flip_ownership=flip,
+            mode=mode,
         )
-        # Move token (in the flipped frame the move is the same vertex)
         move_token = PASS_TOKEN if rc is None else point_to_token(*rc)
         yield _build_example(
             view_board, ko, last_move, cot, move_token, to_move=color,
+            cot_supervised=cot_supervised,
         )
-        # Advance the *true* board (no flip)
         board, ko = play_stone(board, _color_to_value(color), rc)
         last_move = rc
 
 
-def _process_one(args: tuple[str, str]) -> list[CotExample]:
-    sgf_path, jsonl_path = args
-    return list(_examples_for_game(Path(sgf_path), Path(jsonl_path)))
+def _process_one(args: tuple[str, str, str]) -> list[CotExample]:
+    sgf_path, jsonl_path, mode = args
+    return list(_examples_for_game(Path(sgf_path), Path(jsonl_path), mode=mode))
 
 
 def _write_shard(out_dir: Path, shard_idx: int, examples: list[CotExample]) -> None:
@@ -190,18 +219,29 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument("--shard-size", type=int, default=4096)
     parser.add_argument("--workers", type=int, default=max(1, mp.cpu_count() // 2))
+    parser.add_argument(
+        "--mode",
+        choices=["structured", "empty", "free"],
+        default="structured",
+        help=(
+            "CoT ablation mode. structured=B (default; full structured CoT, "
+            "loss on all tokens), empty=A (no inner tokens, just <think></think>), "
+            "free=D (random think-tokens, loss masked inside the region). "
+            "Natural-language (C) is produced by a separate rewriter script."
+        ),
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     sgf_paths = sorted(Path(args.sgf_dir).glob("*.sgf"))
-    pairs: list[tuple[str, str]] = []
+    pairs: list[tuple[str, str, str]] = []
     for s in sgf_paths:
         j = Path(args.jsonl_dir) / (s.stem + ".jsonl")
         if not j.exists():
             log.warning("no analysis for %s; skipping", s)
             continue
-        pairs.append((str(s), str(j)))
-    log.info("processing %d games", len(pairs))
+        pairs.append((str(s), str(j), args.mode))
+    log.info("processing %d games (mode=%s)", len(pairs), args.mode)
 
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
