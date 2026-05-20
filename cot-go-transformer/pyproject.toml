@@ -25,6 +25,13 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+# Phase-1 natural-language CoT rewriter (mode C). Install whichever provider
+# you intend to use; both are listed so `pip install gogpt[nl-cot]` is one
+# command for either path.
+nl-cot = [
+    "anthropic>=0.42",
+    "google-genai>=0.5",
+]
 # FlashAttention-2 and any SAE deps are installed out-of-band per cluster CUDA.
 
 [tool.setuptools.packages.find]
