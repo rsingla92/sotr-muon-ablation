@@ -30,4 +30,30 @@ All notable changes to this project will be documented in this file.
 - Dev infra: GitHub Actions CI (CPU + torch jobs), pre-commit config,
   Makefile, ruff-clean across the codebase.
 - Phase 1 plan doc (`docs/phase1_plan.md`).
-- CPU test suite: 81 passing, 1 xfail (deferred ladder-breaker case).
+
+### CoT vocab + extractor review fixes
+- TOP_MOVE now binds to the played move (not KataGo's top); tactics and
+  shapes are evaluated against the played move.
+- Token IDs clustered by category in contiguous blocks; expose
+  `CATEGORY_RANGES` for Phase-3 SAE slicing.
+- Phase token emitted after grounding facts (not first).
+- Confidence switched from visit-count ratio to winrate-gap.
+- `extract_cot_labels.py --mode {structured, empty, free}` for the
+  A / B / D variants of the central four-way ablation. Loss-mask
+  construction pinned with a regression test
+  (`tests/test_extract_cot_labels.py`).
+
+### Natural-language CoT rewriter (Phase 1 mode C)
+- `gogpt/nl_rewriter.py` -- provider abstraction (Anthropic Claude /
+  Google Gemini / Mock), structured-token decoder, retry wrapper.
+- `scripts/rewrite_cot_natural.py` -- resumable CLI that samples
+  positions from structured-CoT NPZ shards, calls the LLM, and writes
+  JSONL. Defaults to Gemini Flash 2.5 (free tier); Anthropic available
+  with `--provider anthropic --model claude-haiku-4-5` for ~$4 per 15k
+  rewrites.
+- `[nl-cot]` extra in `pyproject.toml` pulls `anthropic` and
+  `google-genai`.
+- `docs/nl_cot.md` documents the tokenization-bridge (custom BPE on
+  the rewriter output) as the path to wiring NL-CoT into training.
+
+- CPU test suite: 102 passing, 1 xfail.
