@@ -1,0 +1,40 @@
+# Smallest-possible smoke-test config.
+# Targets: <1h on a single H100, runs in minutes on CPU with debug_no_data: true.
+
+train_glob: "data/smoke_split/train/*.sgf"
+val_glob:   "data/smoke_split/val/*.sgf"
+max_trajectory_len: 32
+max_examples_per_game: 2
+
+model:
+  n_layers: 4
+  d_model: 128
+  n_heads: 4
+  d_ff: 512
+  max_trajectory_len: 32
+  dropout: 0.0
+  use_flash_attn: false
+
+lr: 3.0e-4
+min_lr: 3.0e-5
+weight_decay: 0.1
+betas: [0.9, 0.95]
+grad_clip: 1.0
+warmup_steps: 100
+max_steps: 1000
+batch_size: 32
+grad_accum: 1
+num_workers: 2
+
+log_every: 25
+val_every: 200
+val_batches: 20
+save_every: 250
+
+run_dir: "runs/smoke"
+seed: 0
+bf16: true
+wandb_project: "cot-go-transformer"
+wandb_run_name: null
+
+debug_no_data: false

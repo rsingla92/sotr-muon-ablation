@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Runs and artifacts
+runs/*/
+!runs/.gitkeep
+checkpoints/
+wandb/
+*.sgf.gz
+*.npy
+*.pt
+*.pth
+*.safetensors
+
+# Local data
+data/
+!data/.gitkeep
+
+# Editor
+.vscode/
+.idea/
+*.swp

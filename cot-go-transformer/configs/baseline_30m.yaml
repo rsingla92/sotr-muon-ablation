@@ -1,0 +1,40 @@
+# Phase-0 30M baseline: 12 layers, d_model=512, ~30M params.
+# Target: train on 50k-100k self-play games for ~24h on 4x H100.
+
+train_glob: "data/baseline/train/*.sgf"
+val_glob:   "data/baseline/val/*.sgf"
+max_trajectory_len: 96
+max_examples_per_game: 6
+
+model:
+  n_layers: 12
+  d_model: 512
+  n_heads: 8
+  d_ff: 2048
+  max_trajectory_len: 96
+  dropout: 0.0
+  use_flash_attn: true  # requires flash-attn install on Fir
+
+lr: 3.0e-4
+min_lr: 1.0e-5
+weight_decay: 0.1
+betas: [0.9, 0.95]
+grad_clip: 1.0
+warmup_steps: 1000
+max_steps: 50000
+batch_size: 128       # per-GPU; effective = batch_size * world_size * grad_accum
+grad_accum: 1
+num_workers: 4
+
+log_every: 50
+val_every: 1000
+val_batches: 100
+save_every: 1000
+
+run_dir: "runs/baseline_30m"
+seed: 0
+bf16: true
+wandb_project: "cot-go-transformer"
+wandb_run_name: null
+
+debug_no_data: false
