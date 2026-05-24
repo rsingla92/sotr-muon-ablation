@@ -21,25 +21,56 @@ if [[ -z "$JOB" ]]; then
     echo "Auto-detected job: $JOB"
 fi
 
-TOTAL=250
 CONCURRENT=24
 LOG_DIR="results/slurm"
+
+# Auto-detect the array size from scontrol (handles redo arrays where the
+# total isn't 250). Spec looks like "ArrayTaskId=0-249%24" for the main array
+# or "ArrayTaskId=24,25,27-32,..." for explicit-index redos. Fall back to
+# sacct row count if scontrol can't see the job (e.g., already finished and
+# purged from the controller), then to 250 as a final fallback.
+detect_total() {
+    local spec n
+    spec=$(scontrol show job "$1" 2>/dev/null \
+        | grep -oE 'ArrayTaskId=[0-9,%-]+' | head -1 \
+        | sed 's/^ArrayTaskId=//' | sed 's/%.*//')
+    if [[ -n "$spec" ]]; then
+        n=$(echo "$spec" | tr ',' '\n' | awk -F'-' '
+            NF==1 {n++}
+            NF==2 {n += $2 - $1 + 1}
+            END {print n+0}')
+        if [[ -n "$n" && "$n" -gt 0 ]]; then echo "$n"; return; fi
+    fi
+    n=$(sacct -j "$1" -X --noheader --format=JobID 2>/dev/null | wc -l | tr -d ' ')
+    if [[ -n "$n" && "$n" -gt 0 ]]; then echo "$n"; return; fi
+    echo 250
+}
+TOTAL=$(detect_total "$JOB")
 
 # ---------------------------------------------------------------------------
 # 1. State counts
 # ---------------------------------------------------------------------------
 echo ""
-echo "=== $(date '+%Y-%m-%d %H:%M:%S %Z') — Job $JOB state counts ==="
-sacct -j "$JOB" -X --noheader --format=State%-12 | awk '{$1=$1; print}' | sort | uniq -c
+echo "=== $(date '+%Y-%m-%d %H:%M:%S %Z') — Job $JOB state counts (size=$TOTAL) ==="
 
-# Pull counts by state for ETA math.
-get_count() {
-    sacct -j "$JOB" -X --noheader --state="$1" 2>/dev/null | wc -l | tr -d ' '
+# Fetch all states once. sacct's --state filter has version-quirks (returns
+# spurious rows on some SLURM builds), so we pull the full state column and
+# count in awk to be safe.
+STATES=$(sacct -j "$JOB" -X --noheader --format=State%-20 2>/dev/null \
+    | awk '{gsub(/[+ ]+$/, "", $0); print $1}')
+echo "$STATES" | sort | uniq -c
+
+count_state() {
+    # Match any of the comma-separated state names passed in.
+    echo "$STATES" | awk -v pats="$1" '
+        BEGIN {n = split(pats, a, ","); for (i=1;i<=n;i++) wanted[toupper(a[i])]=1}
+        toupper($1) in wanted {c++}
+        END {print c+0}'
 }
-N_COMPLETED=$(get_count COMPLETED)
-N_RUNNING=$(get_count RUNNING)
-N_PENDING=$(get_count PENDING)
-N_FAILED=$(get_count FAILED,TIMEOUT,OUT_OF_MEMORY,CANCELLED,NODE_FAIL)
+N_COMPLETED=$(count_state COMPLETED)
+N_RUNNING=$(count_state RUNNING)
+N_PENDING=$(count_state PENDING)
+N_FAILED=$(count_state FAILED,TIMEOUT,OUT_OF_MEMORY,CANCELLED,NODE_FAIL)
 
 # ---------------------------------------------------------------------------
 # 2. Sample completed val losses (last 5 to finish)
