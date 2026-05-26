@@ -120,6 +120,18 @@ def _cells() -> list[dict]:
             sotr_delta=math.inf,
             sotr_ns_steps=2,
         ),
+        # K. Canonical Muon (α=1, Δ=∞, q=5 — SOTR's full-Muon limit).
+        # Added by 2026-05-26 amendment to anchor PROTOCOL §3 H1 (SOTR > Muon).
+        # Without this cell, we have no Phase-2 Muon baseline to compare F (the
+        # best q=5 SOTR variant) against. The SOTR(α=1, Δ=∞, q=5) form is
+        # byte-equivalent to canonical Muon — same NS polynomial, same scale.
+        dict(
+            name="K_muon_canonical",
+            optimizer_name=OptimizerKind.SOTR,
+            sotr_alpha=1.0,
+            sotr_delta=math.inf,
+            sotr_ns_steps=5,
+        ),
     ]
 
 
@@ -133,6 +145,13 @@ SEEDS = (0, 1, 2, 3, 4)
 # LR sweep: 5 log-spaced points around the upstream Muon default of 0.02.
 # Range is half a decade above and below: 0.005 to 0.08.
 LRS = (0.005, 0.01, 0.02, 0.04, 0.08)
+
+# Extended LRs above 0.08 — added by the 2026-05-26 amendment. Phase 2 results
+# showed both F and I peaking at the upper edge (LR=0.08) of the original sweep,
+# suggesting their true optima may be higher. We extend symmetrically for F, I,
+# and the newly-added K so the H1 comparison covers the same LR grid.
+LRS_EXTENSION = (0.12, 0.16)
+EXTENSION_CELLS = ("F_full_ns", "I_muon_plus_cap", "K_muon_canonical")
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +241,10 @@ def main() -> int:
     index_lines: list[str] = []
     n_emitted = 0
 
+    # Pass 1: original §9 grid (cells A-J + K) at standard LRs.
+    # Order matters — indices 0..249 must continue to match the cells/seeds/LRs
+    # we already ran, so existing run dirs (results/phase2/<run_id>/) keep their
+    # array-index mapping. New cell K appends at indices 250..274.
     for cell in cells:
         for seed in SEEDS:
             for lr in LRS:
@@ -229,12 +252,30 @@ def main() -> int:
                 index_lines.append(module_path)
                 n_emitted += 1
 
+    # Pass 2: LR extension for F, I, K — appended at indices 275..304.
+    by_name = {c["name"]: c for c in cells}
+    for cell_name in EXTENSION_CELLS:
+        cell = by_name[cell_name]
+        for seed in SEEDS:
+            for lr in LRS_EXTENSION:
+                module_path, _file_path = _emit(cell, seed, lr, out_dir)
+                index_lines.append(module_path)
+                n_emitted += 1
+
     index_path = out_dir / "index.txt"
     index_path.write_text("\n".join(index_lines) + "\n")
 
-    expected = len(cells) * len(SEEDS) * len(LRS)
+    expected = len(cells) * len(SEEDS) * len(LRS) + len(EXTENSION_CELLS) * len(SEEDS) * len(LRS_EXTENSION)
     print(f"emitted {n_emitted} configs to {out_dir}")
     print(f"index → {index_path} ({len(index_lines)} entries; expected {expected})")
+    print(
+        f"  main grid:   indices 0..{len(cells) * len(SEEDS) * len(LRS) - 1} "
+        f"({len(cells)} cells × {len(SEEDS)} seeds × {len(LRS)} LRs)"
+    )
+    print(
+        f"  LR extension: indices {len(cells) * len(SEEDS) * len(LRS)}..{expected - 1} "
+        f"({len(EXTENSION_CELLS)} cells × {len(SEEDS)} seeds × {len(LRS_EXTENSION)} extra LRs)"
+    )
     if n_emitted != expected:
         print(
             f"WARNING: emitted {n_emitted} != expected {expected}",

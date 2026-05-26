@@ -50,6 +50,7 @@ CELLS = (
     "H_delta_schedule",
     "I_muon_plus_cap",
     "J_partial_ns_muon",
+    "K_muon_canonical",
 )
 
 # H2 family — the three component drops (Holm-Bonferroni correction).
@@ -57,7 +58,7 @@ H2_FAMILY = ("B_drop_alpha", "C_drop_delta", "E_drop_ns")
 
 # Pattern matching the train.py [SOTR] header line.
 _RE_HEADER = re.compile(
-    r"\[SOTR\]\s+run_id=(?P<run_id>\S+)\s+output=(?P<output>\S+)\s+cfg=name=phase2_(?P<cell>[A-J]_\w+?)_seed(?P<seed>\d+)_lr(?P<lr>[\d.]+)"
+    r"\[SOTR\]\s+run_id=(?P<run_id>\S+)\s+output=(?P<output>\S+)\s+cfg=name=phase2_(?P<cell>[A-K]_\w+?)_seed(?P<seed>\d+)_lr(?P<lr>[\d.]+)"
 )
 
 

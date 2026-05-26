@@ -424,6 +424,35 @@ Earlier wording in §5 specified "FP32 NS body." Inspection of `external/Muon/mu
 
 **Reproduction target unchanged:** PROTOCOL §6 still says final FineWeb val loss within ±5% of the published number. At dd2224b, the canonical short-track Muon record is **12.0 minutes on 8× H100** to 3.28 val loss (Record #7, "Upgraded PyTorch 2.5.0", 2024-10-18). On a single H100 with `grad_accum=8` we expect ~1.5–2 hours — faster than the earlier ~3 h estimate that was based on the heavier HEAD script.
 
+### Amendment 2026-05-26 — Add cell K (canonical Muon) + LR extension for F/I/K
+*(Pre-Phase-3; no Phase-3 data yet → free amendment.)*
+
+**Trigger:** Phase 2 results (250 runs across original 10 cells) showed:
+1. Cell F (α=0.5, Δ=1, q=5) crushes cell A by 0.22 nats — *partial* NS (q=2) is harmful, full NS dominates.
+2. Pre-registered "A > B" (α-blend contributes) was **falsified** (Δ ≈ 0, p=0.53).
+3. Pre-registered "A > C" (Δ contributes at q=2) was **falsified** in the opposite direction — C is *better* than A by 0.084 at q=2.
+4. **F's and I's best LRs are both at LR=0.08 — the upper edge of our sweep.** True optima may be higher.
+5. The original §9 grid has no canonical Muon cell. We cannot test H1 (SOTR > Muon) directly on Phase 2 data without one.
+
+**Change:**
+
+1. New cell **K_muon_canonical** (α=1, Δ=∞, q=5): byte-equivalent to canonical Muon (SOTR's α=1 + Δ=∞ + q=5 limit). Provides the H1 baseline that was missing. 5 seeds × 5 LRs = 25 runs.
+2. **LR extension** for cells {F, I, K} at LR ∈ {0.12, 0.16}: 3 cells × 5 seeds × 2 LRs = 30 runs.
+
+Total new compute: 55 runs ≈ 9 hours wall-clock on Fir at Phase-2 scale.
+
+**Rationale:** Without K we cannot honestly evaluate H1 — F's 0.22 win over A may be entirely a function of partial-NS being broken, with F itself only matching or slightly exceeding canonical Muon. The symmetric LR extension across {F, I, K} avoids favoring any cell — if F's true optimum is higher than 0.08, K's might be too.
+
+**New pre-registered prediction (P-K1):** F_best_LR val_loss < K_best_LR val_loss by ≥ 0.02 nats with Holm-significant paired bootstrap. If F ≈ K (CI brackets 0 or |Δ| < 0.02), **H1 is falsified at Phase 2 scale** and Paper 1's SOTR-vs-Muon claim collapses — we either accept the falsification (publish negative result at a smaller venue) or pivot to Paper 2.
+
+**Consequences:**
+- §9 grid: 10 → 11 cells. Original 10 cells unchanged.
+- LR sweep: 5 → 7 LRs for cells {F, I, K}; still 5 LRs for everyone else.
+- §3 H1 becomes directly testable on Phase 2 data.
+- §3 H2 (component necessity) is essentially falsified at Phase 2 scale by the existing data — α-drop and partial-NS-vs-full-NS predictions both failed. We will note this in the paper.
+- Existing 250-run array indices (0..249) are preserved by appending new cells at the end of `index.txt`. New runs are array indices 250..304 (55 tasks).
+- No changes to kill switches, statistical tests, or other pre-registered methods.
+
 ### Amendment 2026-05-03 (G/H deferral) — Static α/Δ for first Phase 2 ablation pass
 *(Pre-Phase-2; no Phase-2 experimental data yet → free amendment.)*
 
