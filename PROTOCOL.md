@@ -1,9 +1,9 @@
-# Experimental Protocol — optimizer_experiments
+# Experimental Protocol — sotr-muon-ablation
 
 **Pre-registered.** This document locks the methodology before experiments are run. It is the analog of a clinical trial protocol: hypotheses, endpoints, baselines, statistical tests, and decision rules are committed in advance. Any change after the first experimental run requires a git commit with rationale, and substantive changes (success criteria, hypotheses, baselines) must be flagged in any final paper.
 
 **Date of pre-registration:** 2026-05-02
-**Repository:** https://github.com/rsingla92/optimizer_experiments
+**Repository:** https://github.com/rsingla92/sotr-muon-ablation
 **Author:** Rohit Singla (UBC)
 
 ---
