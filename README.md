@@ -11,7 +11,7 @@ A pre-registered evaluation of a soft-orthogonal Muon-family optimizer.
 - [What this project is](#what-this-project-is)
 - [Why explore soft-orthogonal Muon variants](#why-explore-soft-orthogonal-muon-variants)
 - [How the evaluation is designed](#how-the-evaluation-is-designed)
-- [Results so far, and where they stand](#results-so-far-and-where-they-stand)
+- [Results so far](#results-so-far)
 - [What is still open](#what-is-still-open)
 - [If you are skimming, look at these](#if-you-are-skimming-look-at-these)
 - [Repository layout](#repository-layout)
@@ -29,7 +29,7 @@ A pre-registered evaluation of a soft-orthogonal Muon-family optimizer.
 
 ## How this project came about
 
-I wanted to spend serious time in an area I did not know well. My training is in medicine and biomedical engineering, not optimization theory, but the Muon optimizer and the surrounding literature struck me as a genuinely hard, currently active problem where the habits I already use every day (careful trial design, pre-registration, statistical inference) might have something to add. This repository is that exploration. It is part learning exercise, part research exercise, run under the discipline of a pre-registered protocol so the eventual answer is credible regardless of which direction it lands.
+I wanted to spend serious time in an area I did not know well. My training is in medicine and biomedical engineering, not optimization theory. The [Muon optimizer](https://github.com/KellerJordan/Muon) and the surrounding literature struck me as a hard, currently active problem where the habits I already use every day (careful trial design, pre-registration, statistical inference) might have something to add. This repository is that exploration, treated as a research exercise rather than a side project, and run under a pre-registered protocol so the eventual answer is credible in whichever direction it lands.
 
 ## What this project is
 
@@ -39,13 +39,13 @@ SOTR, short for Soft-Orthogonal Trust Region, is a Muon-family optimizer with th
 - A Δ parameter that caps the Frobenius norm of the post-blend update on a per-matrix basis, giving a per-matrix trust region.
 - A q parameter that sets the number of Newton-Schulz iterations.
 
-The corner case (α = 1, Δ = ∞, q = 5) reproduces canonical Muon byte-for-byte. This equivalence is enforced as a kill-switch test in `tests/sanity/test_sotr_limits.py`. SOTR is designed as a strict generalization of Muon along these three axes so we can ask a concrete question: does adding per-matrix magnitude control (via Δ) and a partial-orthogonalization schedule (via α and q) actually improve training in a measurable way?
+The corner case (α = 1, Δ = ∞, q = 5) reproduces canonical Muon byte-for-byte. This equivalence is enforced as a kill-switch test in `tests/sanity/test_sotr_limits.py`. SOTR is a strict generalization of Muon along these three axes, which lets us ask a concrete question: does adding per-matrix magnitude control (via Δ) and a partial-orthogonalization schedule (via α and q) produce a measurable improvement in training?
 
-The methodology is the artifact. Hypotheses were committed before code was written, phase gates and kill switches were defined up front, statistical tests were specified in advance, and every decision rule is dated in the commit log.
+Hypotheses were committed before code was written, phase gates and kill switches were defined up front, statistical tests were specified in advance, and every decision rule is dated in the commit log.
 
 ## Why explore soft-orthogonal Muon variants
 
-Muon is the current state-of-the-art result on the modded-nanogpt speedrun benchmark, and it has recently been adopted for pretraining Kimi K2 at Moonshot AI. Its distinguishing feature is that it orthogonalizes the momentum matrix before applying it as an update: the Newton-Schulz iteration projects the momentum onto (approximately) the closest orthogonal matrix, and the whole update is then scaled by a single scalar learning rate. There is no direct control over the magnitude of the update matrix by matrix.
+[Muon](https://github.com/KellerJordan/Muon) is the current state-of-the-art result on the [modded-nanogpt speedrun benchmark](https://github.com/KellerJordan/modded-nanogpt), and it was used for pretraining [Kimi K2 at Moonshot AI](https://huggingface.co/moonshotai/Kimi-K2-Instruct). What makes it interesting is the update rule: it orthogonalizes the momentum matrix before applying it, via a Newton-Schulz iteration that projects the momentum onto (approximately) the closest orthogonal matrix. The whole update is then scaled by a single scalar learning rate. There is no direct control over the magnitude of the update matrix by matrix.
 
 Trust-region methods are standard elsewhere in optimization. They anchor policy-gradient reinforcement-learning methods (TRPO, PPO), classical second-order methods (Levenberg-Marquardt, trust-region Newton), and constrained convex optimization. The reason is straightforward. A step direction can be correct while the magnitude is wrong, and controlling magnitude explicitly is often what separates a stable optimizer from an unstable one. Adding a per-matrix Frobenius cap to Muon is a small, mechanistic change that lets us ask whether that principle helps in first-order deep-learning optimizers as well.
 
@@ -66,7 +66,7 @@ Two kill switches were named for the failure modes that would invalidate everyth
 
 Compute: the Fir partition of the [Digital Research Alliance of Canada](https://alliancecan.ca/en) at Simon Fraser University, which provides the H100 nodes used for every reported number. Harness: modded-nanogpt pinned to commit `dd2224b`, vendored into `experiments/train.py` with a minimal optimizer-dispatch patch.
 
-## Results so far, and where they stand
+## Results so far
 
 ### Phase 1: reproduction gate passed
 
@@ -99,9 +99,14 @@ K seed 0, lr 0.08  → 3.8195
 
 K's seed-0 optimum lands about 0.05 nats below F's best of 3.819. If that margin holds after averaging across all five seeds, prediction P-K1 (F beats K by at least 0.02 nats after Holm-Bonferroni correction) will not be supported, and canonical Muon already matches or beats the best SOTR variant tested at this scale. Full-seed verification is running now (job 41671913).
 
-### What this looks like as a scientific outcome
+### What I learned so far
 
-Predictions failing to hold up is not "the experiment did not work." It is what a pre-registered protocol is for. The methodological artifact, meaning the protocol together with the analysis pipeline and the decision tree, remains useful regardless of which optimizer ends up winning. Whether the eventual writeup is a positive-result paper or a pre-registered negative result depends on the canonical-Muon cell verdict.
+I did not see a clean benefit over canonical Muon from the SOTR knobs at the reduced scale we tested, and if the seed-0 pattern on cell K holds across all five seeds I probably will not. A few takeaways regardless:
+
+- Pre-registration paid off. Without it I would have been tempted to reframe each surprising result as a discovery. The commit log locks the original bets in.
+- The α-blend and the per-matrix Frobenius cap did not do as much as I expected. Whatever room there is over Muon at this scale probably sits elsewhere, most likely in higher q or in scheduling of the knobs.
+- Building a real pre-registered optimizer evaluation is doable in a few weeks of part-time work if you lean on existing infrastructure: a good training harness, an existing Newton-Schulz routine, an academic cluster.
+- Working alongside an AI coding tool for research code was a shift in how I worked. I got much faster at going from "what am I actually trying to measure" to runnable, tested code.
 
 ## What is still open
 
@@ -113,7 +118,7 @@ Predictions failing to hold up is not "the experiment did not work." It is what 
 
 ## If you are skimming, look at these
 
-Five files that let a skim-reader verify this is not machine-generated boilerplate.
+Five files worth opening if you want to see the actual work.
 
 1. **[`PROTOCOL.md`](PROTOCOL.md)** (504 lines). The pre-registration itself. Hypotheses, kill switches, phase gates, statistical tests, dated amendments.
 2. **[`optimizers/sotr.py`](optimizers/sotr.py)** (225 lines). The optimizer implementation. Muon-byte-compatible at the (α = 1, Δ = ∞, q = 5) corner. The Newton-Schulz polynomial is imported from `external/Muon`, not reimplemented.
@@ -164,11 +169,13 @@ Per-phase procedures live in [`docs/PHASE1.md`](docs/PHASE1.md), [`docs/PHASE2.m
 
 ## How this project was built, and how I used AI tools
 
-This project was executed with Claude Code as a research assistant across many sessions. The division of labor:
+This is a solo research-engineering exercise, and I owned the loop end to end. That meant translating an unfamiliar problem into a pre-registered protocol with numeric gates, choosing the statistical tests, picking the training harness and compute, amending the protocol as results came in, and reading each phase against pre-committed decision rules. Claude Code was my execution collaborator across many sessions, and every artifact went through my review before it landed on `main`.
 
-I chose the hypotheses (H1 through H4 plus the kill conditions), the success criteria and effect-size thresholds, the statistical tests (paired bootstrap plus Holm-Bonferroni over the component-necessity family), the training harness (modded-nanogpt), the compute environment (the Digital Research Alliance of Canada Fir cluster), the phase gates and the kill switches, every protocol amendment after a surprising result, the decision rules for each Phase 2 finding, and the reframed contribution claim after I noticed that the α-blend was not cleanly novel.
+**I owned:** hypothesis choice (H1 through H4 plus the two kill conditions), success criteria and effect-size thresholds, statistical tests (paired bootstrap plus Holm-Bonferroni over the component-necessity family), the training harness ([modded-nanogpt](https://github.com/KellerJordan/modded-nanogpt)), the compute environment (Fir cluster on the Digital Research Alliance of Canada), phase gates and kill switches, every protocol amendment after a surprising result, and the reframed contribution claim after I noticed the α-blend was not cleanly novel.
 
-Claude Code accelerated the implementation work: the optimizer (written from the pre-registered spec and then verified against `tests/sanity/test_sotr_limits.py`), the SLURM plumbing, the config-generation script, the analysis-pipeline scaffolding together with its unit tests, and the literature-review synthesis of two Muon-family papers ([`knowledge/08_muonbp_block_periodic.md`](knowledge/08_muonbp_block_periodic.md) and [`knowledge/09_demo_decoupled_momentum.md`](knowledge/09_demo_decoupled_momentum.md)). Each of those two literature notes was drafted by a subagent from the source arxiv PDF and reviewed before commit.
+**Claude Code accelerated:** the SOTR implementation (written from the pre-registered spec, then verified against `tests/sanity/test_sotr_limits.py`), the SLURM plumbing, the config-generation script, the analysis-pipeline scaffolding together with its unit tests, and the literature-review synthesis of two Muon-family papers ([`knowledge/08_muonbp_block_periodic.md`](knowledge/08_muonbp_block_periodic.md) and [`knowledge/09_demo_decoupled_momentum.md`](knowledge/09_demo_decoupled_momentum.md)). Each of those two notes was drafted by a subagent from the source arxiv PDF and reviewed before commit.
+
+The shape of the work is close to what forward-deployed and applied research engineers do inside frontier AI labs: own scope and methodology, drive AI as a working tool inside tight iteration loops, and take responsibility for what ships.
 
 ## License
 
