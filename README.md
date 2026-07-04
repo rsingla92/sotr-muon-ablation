@@ -4,6 +4,34 @@ A pre-registered evaluation of a soft-orthogonal Muon-family optimizer.
 
 **Author.** Rohit Singla, rsingla@ece.ubc.ca, [LinkedIn](https://www.linkedin.com/in/rsingla92/)
 
+```
+    ┌──────────────────────────────────────────────────────────┐
+    │  Can Muon get better if we control the magnitude         │
+    │  of the update matrix by matrix?                         │
+    │                                                          │
+    │        grad ──▶ momentum M                               │
+    │                     │                                    │
+    │              ┌──────▼──────────────┐                     │
+    │         q ─▶ │  Newton-Schulz      │  q iterations       │
+    │              │   M  ──▶  O (orth)  │  (5 = full,         │
+    │              └──────┬──────────────┘   0 = skip)         │
+    │              ┌──────▼──────────────┐                     │
+    │         α ─▶ │  α-blend            │  α = 1 : pure orth  │
+    │              │   U =    α O        │          (= Muon)   │
+    │              │      +(1-α)M/‖M‖    │  α = 0 : pure mag   │
+    │              └──────┬──────────────┘                     │
+    │              ┌──────▼──────────────┐                     │
+    │         Δ ─▶ │  Frobenius cap      │  trust region,      │
+    │              │   ‖U‖_F  ≤  Δ       │  per matrix         │
+    │              └──────┬──────────────┘                     │
+    │                     ▼                                    │
+    │              parameter update                            │
+    │                                                          │
+    │      Muon  =  SOTR at (α=1, Δ=∞, q=5).                   │
+    │      Sweep the corners around it, see what wins.         │
+    └──────────────────────────────────────────────────────────┘
+```
+
 ## Table of contents
 
 - [Current status](#current-status)
