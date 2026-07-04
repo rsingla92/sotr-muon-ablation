@@ -70,3 +70,14 @@ scratch/
 *.pt
 *.pth
 !tests/fixtures/*.pt
+
+# Local-only: Claude Code session config + gstack skill routing (not for public repo)
+.claude/
+CLAUDE.md
+
+# Local-only: internal planning notes
+.planning/
+
+# Local-only: source PDFs digested into knowledge/ (kept off the public repo)
+Executive Summary*.pdf
+Research Ideas*.pdf
