@@ -34,8 +34,8 @@ ssh fir.alliancecan.ca       # if Fir uses its own login alias
 # Clone into project space (NOT $HOME — too small for this work).
 mkdir -p ~/projects/rrg-timsbc/$USER/code
 cd ~/projects/rrg-timsbc/$USER/code
-git clone --recurse-submodules git@github.com:rsingla92/optimizer_experiments.git
-cd optimizer_experiments
+git clone --recurse-submodules git@github.com:rsingla92/sotr-muon-ablation.git
+cd sotr-muon-ablation
 
 # Run the DRAC setup helper. Takes ~5 minutes (mostly FineWeb download).
 ./scripts/setup_drac.sh
