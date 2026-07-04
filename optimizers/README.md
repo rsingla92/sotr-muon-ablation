@@ -1,13 +1,13 @@
 # optimizers/
 
-Optimizer implementations. **Almost everything here is empty by design** — see `docs/ARCHITECTURE.md` for the rationale. The repo's policy is to import from canonical references rather than reimplement.
+Optimizer implementations. **Almost everything here is empty by design** — see [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the rationale. The repo's policy is to import from canonical references rather than reimplement.
 
 ## Files
 
-| File | Status | Notes |
-|---|---|---|
-| `__init__.py` | written | Public API: `from optimizers import SOTR, Lion`. Lion is re-exported from `lion_pytorch`. |
-| `sotr.py` | **the one novel file** | SOTR optimizer. ~80–100 lines including docstring. |
+| File | Notes |
+|---|---|
+| `__init__.py` | Public API: `SOTR`, plus `Lion` re-exported from `lion_pytorch` for convenience. Muon is **not** re-exported — use `from muon import Muon` at the import site so the baseline's lineage is explicit. |
+| `sotr.py` | **The one novel file.** 225 lines. Muon-byte-compatible at `(α=1, Δ=∞, q=5)`. |
 
 ## What we deliberately do *not* have
 

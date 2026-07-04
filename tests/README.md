@@ -29,7 +29,7 @@ The mapping is enforced in `test_sanity_coverage.py` — that test fails if any 
 
 ## Conventions
 
-- Each test file mirrors a source file path. `tests/unit/test_newton_schulz.py` tests `optimizers/_newton_schulz.py`.
+- Each test file mirrors a source file path. `tests/unit/test_phase2_analysis.py` tests `experiments/analysis/phase2_summary.py`.
 - Test functions: `test_<behavior>` — what's verified, not "test_1".
 - Floating-point comparisons use `torch.allclose` with explicit `atol`/`rtol`. Never `==`.
 - Determinism: seeds are auto-set per test (see `conftest.py`).
@@ -40,7 +40,7 @@ The mapping is enforced in `test_sanity_coverage.py` — that test fails if any 
 ```bash
 make sanity              # just sanity tier (gating)
 make test                # full suite
-pytest tests/unit -k newton_schulz   # targeted
+pytest tests/unit -k phase2          # targeted
 pytest tests/ -m "not slow"          # skip slow tests
 pytest tests/ -m "gpu" -v            # only GPU tests
 pytest tests/ -x                     # stop on first failure

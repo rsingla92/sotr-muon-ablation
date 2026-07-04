@@ -16,14 +16,14 @@ This is research code, not a production library. But research code that's hard t
 See `docs/ARCHITECTURE.md` for the full structure. The short version:
 
 ```
-optimizers/      Optimizer implementations (SOTR, Lion, MuonLike, ...)
-experiments/     Run scripts and YAML configs
-scripts/         Repo-level utilities (setup, SLURM templates, etc.)
-tests/           Sanity (PROTOCOL §7) and unit tests
-external/        Pinned reference repos (read-only)
+optimizers/      SOTR (our one novel optimizer); Lion re-exported from lion_pytorch
+experiments/     Run scripts, Python config modules, analysis pipeline
+scripts/         Repo-level utilities (setup, SLURM templates, ablation status)
+tests/           Sanity (PROTOCOL §7 gates) + unit tests
+external/        Pinned reference repos (read-only submodules)
 results/         Run outputs (gitignored except .gitkeep)
-knowledge/       Literature summaries
-docs/            Architecture, cluster, experiment docs
+knowledge/       Literature synthesis
+docs/            Architecture, cluster, per-phase procedures
 ```
 
 ## Code style
@@ -98,7 +98,7 @@ This is a hard requirement, not optional.
 
 ### Configs
 
-All experiment hyperparameters live in `experiments/configs/*.yaml`. No hardcoded numbers in training scripts. The training script reads the config, validates it against a `@dataclass`, and passes typed values down. Example pattern:
+All experiment hyperparameters live in Python config modules under `experiments/configs/`. Each is a small file that constructs a single `RunConfig` dataclass instance and assigns it to the module-level `config` name. No hardcoded numbers in training scripts. The training script imports the config module by dotted path (`--config experiments.configs.<name>`), validates on load via `__post_init__`, and passes typed values down. Example dataclass:
 
 ```python
 @dataclass(frozen=True)
@@ -115,7 +115,7 @@ Config dataclasses live in `experiments/_configs.py`. Validation (LR > 0, etc.) 
 ### Logging
 
 - `logging.getLogger(__name__)`, not `print` — except in scripts where stdout is the user-facing output.
-- Each run produces a `results/<run_id>/` directory containing: `config.yaml`, `train.log`, `train.jsonl` (per-step metrics), `final_metrics.json`, `commit.txt` (git SHA), and `env.txt` (`pip freeze`).
+- Each run produces a `results/<phase>/<run_id>/` directory containing: `train.log`, `train.jsonl` (per-step metrics), `eval.jsonl` (validation losses), `final_metrics.json`, `stability_incidents.jsonl` (PROTOCOL §8), and `env.txt` (`pip freeze` + `nvidia-smi` + git SHA).
 - Run IDs are timestamps + 6-char hash: `2026-05-02_143022_a3f2c1`. Implemented once in `experiments/_run_id.py`, used everywhere.
 
 ### Error handling
@@ -171,7 +171,7 @@ See `tests/README.md` for the layout. Philosophy:
 ## What this codebase will *not* have
 
 - Plugin architectures. We write one optimizer at a time.
-- Custom config DSLs (we use plain YAML + dataclasses).
+- Custom config DSLs (we use plain Python dataclasses in `experiments/configs/`).
 - Web dashboards (we use `tensorboard --logdir results/` if visualization needed).
 - A test that has to be skipped on CI ("flaky"). Either the test is right and the code is wrong, or the test is wrong.
 - "TODO" comments in committed code. Use a tracked task instead.

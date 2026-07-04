@@ -44,13 +44,13 @@ Cost: **zero** (allocation-based). Bound is GPU-hour quota and queue time.
 ```
 $HOME                                      Small (~50GB). Code clone only. Never put data here.
 ~/projects/rrg-timsbc/rsingla/             Project space (group-shared, several TB quota)
-├── code/optimizer_experiments/            Git working tree (this repo)
+├── code/sotr-muon-ablation/            Git working tree (this repo)
 └── checkpoints/                           Long-term checkpoints (symlinked from repo)
 
 ~/scratch/                                 Scratch (large quota, periodically purged)
-├── optimizer_experiments/venv/            Python environment (rebuild on cluster, not synced)
-├── optimizer_experiments/data/            FineWeb shards (~5–10GB)
-└── optimizer_experiments/results/         Per-run outputs (large; gitignored, symlinked from repo)
+├── sotr-muon-ablation/venv/            Python environment (rebuild on cluster, not synced)
+├── sotr-muon-ablation/data/            FineWeb shards (~5–10GB)
+└── sotr-muon-ablation/results/         Per-run outputs (large; gitignored, symlinked from repo)
 
 $SLURM_TMPDIR                              Node-local NVMe (per-job, fastest IO).
                                             Use for shuffled tokenized batches if data is the bottleneck.
@@ -66,9 +66,9 @@ $SLURM_TMPDIR                              Node-local NVMe (per-job, fastest IO)
 
 ```bash
 # On a Fir login node:
-git clone --recurse-submodules git@github.com:rsingla92/optimizer_experiments.git \
-    ~/projects/rrg-timsbc/$USER/code/optimizer_experiments
-cd ~/projects/rrg-timsbc/$USER/code/optimizer_experiments
+git clone --recurse-submodules git@github.com:rsingla92/sotr-muon-ablation.git \
+    ~/projects/rrg-timsbc/$USER/code/sotr-muon-ablation
+cd ~/projects/rrg-timsbc/$USER/code/sotr-muon-ablation
 ./scripts/setup_drac.sh
 ```
 
@@ -78,7 +78,7 @@ For interactive work after setup, the module stack must be reloaded before activ
 
 ```bash
 module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
-source ~/scratch/optimizer_experiments/venv/bin/activate
+source ~/scratch/sotr-muon-ablation/venv/bin/activate
 ```
 
 
@@ -103,7 +103,7 @@ set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
 module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
-source ~/scratch/optimizer_experiments/venv/bin/activate
+source ~/scratch/sotr-muon-ablation/venv/bin/activate
 
 python experiments/train.py --config "$1"
 ```
@@ -134,7 +134,7 @@ set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
 module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
-source ~/scratch/optimizer_experiments/venv/bin/activate
+source ~/scratch/sotr-muon-ablation/venv/bin/activate
 
 torchrun --standalone --nproc_per_node=4 \
     experiments/train.py --config "$1"
@@ -158,7 +158,7 @@ For Phase 2's 250-run ablation grid (10 cells × 5 seeds × 5 LRs):
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 module load StdEnv/2023 python/3.12 cuda/12.6 gcc/12
-source ~/scratch/optimizer_experiments/venv/bin/activate
+source ~/scratch/sotr-muon-ablation/venv/bin/activate
 
 # Map array index to a generated config file.
 CONFIG=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" experiments/configs/phase2/index.txt)
